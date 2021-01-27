@@ -6,6 +6,7 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Session {
 	
@@ -25,9 +26,10 @@ public class Session {
 	private StringBuilder line;
 	private State state;
 	private Request request=null;
-	private boolean locked;
+	private ReentrantLock lock;
 	
 	public Session(SocketChannel channel) {
+		this.lock=new ReentrantLock();
 		this.channel=channel;
 		buffer=ByteBuffer.allocate(BUFFER_SIZE);
 		Charset charset=Charset.forName("ISO-8859-1");
@@ -89,6 +91,7 @@ public class Session {
 	}
 	
 	public Request processInput() {
+		lock.lock();
 		try {
 			int position=buffer.position();
 			buffer.flip();
@@ -116,6 +119,7 @@ public class Session {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		lock.unlock();
 		return request;
 	}
 	
@@ -123,15 +127,12 @@ public class Session {
 		return this.channel;
 	}
 	
-	public synchronized boolean lock() {
-		if(locked)
-			return false;
-		locked=true;
-		return true;
+	public void lock() {
+		lock.lock();
 	}
 	
 	public void unlock() {
-		locked=false;
+		lock.unlock();
 	}
 
 }

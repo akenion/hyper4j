@@ -72,8 +72,7 @@ public class HttpServer{
 				}
 				else if(key.isValid()&&key.isReadable()) {
 					Session session=(Session)key.attachment();
-					if(!session.lock())
-						continue;
+					session.lock();
 					SocketChannel client=(SocketChannel)key.channel();
 					int read=0;
 					while(client.isOpen()&&session.getBuffer().hasRemaining()&&(read=client.read(session.getBuffer()))>0) {

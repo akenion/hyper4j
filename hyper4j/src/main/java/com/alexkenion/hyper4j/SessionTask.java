@@ -16,8 +16,7 @@ public class SessionTask implements Runnable{
 
 	@Override
 	public void run() {
-		if(!session.lock())
-			return;
+		session.lock();
 		Request request=session.processInput();
 		Response response=server.handleRequest(request);//handleRequest(request);
 		response.setHeader("Server", "Hyper4J/0.0.0");
@@ -36,7 +35,7 @@ public class SessionTask implements Runnable{
 		SocketChannel client=session.getChannel();
 		try {
 			client.write(charset.encode(out.toString()));
-			client.close();
+			//client.close();
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
