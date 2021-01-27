@@ -2,12 +2,10 @@ package com.alexkenion.hyper4j;
 
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.nio.channels.SocketChannel;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
-
-import com.alexkenion.hyper4j.http.HttpException;
-import com.alexkenion.hyper4j.http.Request;
 
 public class Session {
 	
@@ -21,13 +19,16 @@ public class Session {
 	
 	private static int BUFFER_SIZE=1024;
 
+	private SocketChannel channel;
 	private CharsetDecoder decoder;
 	private ByteBuffer buffer;
 	private StringBuilder line;
 	private State state;
 	private Request request=null;
+	private boolean locked;
 	
-	public Session() {
+	public Session(SocketChannel channel) {
+		this.channel=channel;
 		buffer=ByteBuffer.allocate(BUFFER_SIZE);
 		Charset charset=Charset.forName("ISO-8859-1");
 		this.decoder=charset.newDecoder();
@@ -109,42 +110,28 @@ public class Session {
 					end=i;
 				}
 			}
-			//for(i=0;i<chars.length;i++) {
-			//	//System.out.println("Char: "+chars[i]);
-			//	if(chars[i]=='\n') {
-			//		String line=charBuffer.subSequence(0, i).toString();
-			//		System.out.println("Read Line: "+line);
-			//		try {
-			//			this.handleLine(line);
-			//		} catch (HttpException e) {
-			//			// TODO Auto-generated catch block
-			//			e.printStackTrace();
-			//		}
-			//		//buffer.compact();
-			//		//return;
-			//	}
-			//}
 			buffer.position(Math.min(end, buffer.capacity()));
 			buffer.compact();
-			//System.out.println("Current: "+buffer.limit()+", "+buffer.position());
-			//buffer.limit(buffer.capacity());
-			//buffer.position(i);
-			//System.out.println("Compacted: "+buffer.limit()+", "+buffer.position());
-			//buffer.flip();
 		} catch (CharacterCodingException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return request;
-		//line=new StringBuilder();
-		//for(int i=0;i<buffer.position();i++) {
-		//	char c=(char)buffer.get(i);
-		//	System.out.println("Char: "+c);
-		//	line.append(c);
-		//	if(c=='\n') {
-		//		System.out.println("Read line: "+line);
-		//	}
-		//}
+	}
+	
+	public SocketChannel getChannel() {
+		return this.channel;
+	}
+	
+	public synchronized boolean lock() {
+		if(locked)
+			return false;
+		locked=true;
+		return true;
+	}
+	
+	public void unlock() {
+		locked=false;
 	}
 
 }
