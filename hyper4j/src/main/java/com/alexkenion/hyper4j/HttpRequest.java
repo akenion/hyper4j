@@ -3,18 +3,18 @@ package com.alexkenion.hyper4j;
 import java.util.HashMap;
 import java.util.Map;
 
-public class Request extends Message {
+public class HttpRequest extends HttpMessage {
 	
 	private String method;
-	private String url;
+	private Url url;
 	
-	public Request(String method, String url, Map<String, String> headers) {
+	public HttpRequest(String method, Url url, Map<String, String> headers) {
 		super(headers);
 		this.method=method;
 		this.url=url;
 	}
 	
-	public Request(String method, String url) {
+	public HttpRequest(String method, Url url) {
 		this(method, url, new HashMap<String, String>());
 	}
 	
@@ -22,7 +22,7 @@ public class Request extends Message {
 		return method;
 	}
 	
-	public String getUrl() {
+	public Url getUrl() {
 		return url;
 	}
 	

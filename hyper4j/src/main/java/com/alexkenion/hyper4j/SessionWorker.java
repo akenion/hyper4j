@@ -4,21 +4,17 @@ import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
 
-public class SessionTask implements Runnable{
+public class SessionWorker implements Runnable{
 	
 	private HttpServer server;
 	private Session session;
 	
-	public SessionTask(HttpServer server, Session session) {
+	public SessionWorker(HttpServer server, Session session) {
 		this.server=server;
 		this.session=session;
 	}
-
-	@Override
-	public void run() {
-		session.lock();
-		Request request=session.processInput();
-		Response response=server.handleRequest(request);//handleRequest(request);
+	
+	private void writeResponse(HttpResponse response) {
 		response.setHeader("Server", "Hyper4J/0.0.0");
 		String body=response.getBody();
 		response.setHeader("Content-Length", body.length()+"");
@@ -39,6 +35,22 @@ public class SessionTask implements Runnable{
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+		}
+	}
+
+	@Override
+	public void run() {
+		session.lock();
+		try {
+			HttpRequest request=session.processInput();
+			if(request==null)
+				return;
+			System.out.println("Request for "+request.getUrl()+" with method "+request.getMethod());
+			writeResponse(server.handleRequest(request));
+		} catch (HttpException e1) {
+			System.err.println("Received malformed request");
+			e1.printStackTrace();
+			writeResponse(new HttpResponse(400));
 		}
 		session.unlock();
 	}

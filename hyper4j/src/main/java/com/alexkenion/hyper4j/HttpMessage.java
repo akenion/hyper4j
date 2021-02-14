@@ -3,16 +3,16 @@ package com.alexkenion.hyper4j;
 import java.util.HashMap;
 import java.util.Map;
 
-public abstract class Message {
+public abstract class HttpMessage {
 
 	private Map<String, String> headers;
 	private String body="";
 	
-	public Message(Map<String, String> headers) {
+	public HttpMessage(Map<String, String> headers) {
 		this.headers=headers;
 	}
 	
-	public Message() {
+	public HttpMessage() {
 		this(new HashMap<String, String>());
 	}
 

@@ -16,12 +16,22 @@ import java.util.concurrent.TimeUnit;
 public class HttpServer{
 	
 	private Set<SocketAddress> addresses;
+	private HttpServerSettings settings;
 	private boolean running=false;
 	private RequestHandler handler;
 	private ExecutorService threadPool;
 	
-	public HttpServer(Set<SocketAddress> addresses) {
+	public HttpServer(HttpServerSettings settings, Set<SocketAddress> addresses) {
+		this.settings=settings;
 		this.addresses=addresses;
+	}
+	
+	public HttpServer(HttpServerSettings settings) {
+		this(settings, new HashSet<SocketAddress>());
+	}
+	
+	public HttpServer(Set<SocketAddress> addresses) {
+		this(new HttpServerSettings(), addresses);
 	}
 	
 	public HttpServer() {
@@ -36,7 +46,7 @@ public class HttpServer{
 		this.handler=handler;
 	}
 	
-	public Response handleRequest(Request request) {
+	public HttpResponse handleRequest(HttpRequest request) {
 		return this.handler.handle(request);
 	}
 	
@@ -68,7 +78,7 @@ public class HttpServer{
 					}
 					System.out.println("Accepted connection from "+client.getRemoteAddress());
 					client.configureBlocking(false);
-					client.register(selector, SelectionKey.OP_READ, new Session(client));
+					client.register(selector, SelectionKey.OP_READ, new Session(settings, client));
 				}
 				else if(key.isValid()&&key.isReadable()) {
 					Session session=(Session)key.attachment();
@@ -78,24 +88,7 @@ public class HttpServer{
 					while(client.isOpen()&&session.getBuffer().hasRemaining()&&(read=client.read(session.getBuffer()))>0) {
 						System.out.println("Read "+read+" bytes from "+client.getRemoteAddress());
 						if(read>0) {
-							threadPool.submit(new SessionTask(this, session));
-						//	Request request=session.processInput();
-						//	Response response=handler.handle(request);//handleRequest(request);
-						//	response.setHeader("Server", "Hyper4J/0.0.0");
-						//	String body=response.getBody();
-						//	response.setHeader("Content-Length", body.length()+"");
-						//	Charset charset=Charset.forName("ISO-8859-1");
-						//	StringBuilder out=new StringBuilder();
-						//	out.append("HTTP/1.1 "+response.getStatus()+" OK\r\n");
-						//	for(String field:response.getHeaders().keySet()) {
-						//		String value=response.getHeader(field);
-						//		out.append(field+": "+value+"\r\n");
-						//	}
-						//	out.append("\r\n");
-						//	out.append(body);
-						//	System.out.println("Sending response: "+out);
-						//	client.write(charset.encode(out.toString()));
-						//	client.close();
+							threadPool.submit(new SessionWorker(this, session));
 							break;
 						}
 					}
@@ -114,6 +107,23 @@ public class HttpServer{
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+	}
+	
+	public void startInThread() {
+		Thread thread=new Thread(new Runnable() {
+
+			@Override
+			public void run() {
+				try {
+					start();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			
+		});
+		thread.start();
 	}
 	
 	//private Response handleRequest(Request request) {
