@@ -1,6 +1,5 @@
 package com.alexkenion.hyper4j;
 
-import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
@@ -66,6 +65,7 @@ public class HttpParser {
 	}
 	
 	private void parseRequestLine(String line) throws HttpException {
+		System.out.println("Parsing request line: "+line);
 		String[] components=line.split(" ", 3);
 		if(components.length!=3)
 			throw new HttpException("Invalid request line: "+line);
@@ -106,15 +106,15 @@ public class HttpParser {
 			return;
 		}
 		ByteBuffer nameBuffer=BufferUtil.readToDelimiter(line, COLON);
-		if(nameBuffer.remaining()==1)
-			throw new HttpException("Malformed header");
+		if(nameBuffer==null||nameBuffer.remaining()==1)
+			throw new HttpException("Malformed header: no name found");
 		try {
 			String name=ASCII_DECODER.decode(nameBuffer).toString();
 			String value=ASCII_DECODER.decode(line).toString().trim();
 			System.out.println("Read header "+name+" | "+value);
 			request.setHeader(name, value);
 		} catch (CharacterCodingException e) {
-			throw new HttpException("Malformed header", e);
+			throw new HttpException("Malformed header: character encoding issue", e);
 		}
 	}
 	
@@ -133,6 +133,7 @@ public class HttpParser {
 	 */
 	public HttpRequest parse() throws HttpException {		
 		needsInput=false;
+		BufferUtil.printBuffer(buffer);
 		try {
 			while(state!=State.RECEIVED&&buffer.hasRemaining()&&!needsInput) {
 				switch(state) {
