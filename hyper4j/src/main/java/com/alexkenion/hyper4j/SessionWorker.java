@@ -43,8 +43,11 @@ public class SessionWorker implements Runnable{
 		session.lock();
 		try {
 			HttpRequest request=session.processInput();
-			if(request==null)
+			System.out.println("Processing request: "+request);
+			if(request==null) {
+				System.out.println("No request");
 				return;
+			}
 			System.out.println("Request for "+request.getUrl()+" with method "+request.getMethod());
 			writeResponse(server.handleRequest(request));
 		} catch (HttpException e1) {

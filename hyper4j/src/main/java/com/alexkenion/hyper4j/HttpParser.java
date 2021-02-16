@@ -18,9 +18,10 @@ public class HttpParser {
 
 	private static final byte[] CRLF=new byte[]{13, 10};
 	private static final byte[] COLON=new byte[]{58};
-	private static final String SP="SP";
+	private static final String SPACE=" ";
 	private static final Charset CHARSET_ASCII=Charset.forName("ASCII");
 	private static final CharsetDecoder ASCII_DECODER=CHARSET_ASCII.newDecoder();
+	private static final String HEADER_HOST="Host";
 
 	private ByteBuffer buffer;
 	private State state;
@@ -65,8 +66,7 @@ public class HttpParser {
 	}
 	
 	private void parseRequestLine(String line) throws HttpException {
-		System.out.println("Parsing request line: "+line);
-		String[] components=line.split(" ", 3);
+		String[] components=line.split(SPACE, 3);
 		if(components.length!=3)
 			throw new HttpException("Invalid request line: "+line);
 		protocolVersion=new HttpVersion(components[2]);
@@ -79,11 +79,9 @@ public class HttpParser {
 	
 	private void parseRequestLine() throws HttpException {
 		ByteBuffer requestLine=BufferUtil.readToDelimiter(buffer, CRLF);
-		System.out.println("Read request line");
 		if(requestLine==null) {
 			if(checkBufferLimit())
 				throw new HttpException("Request line too long");
-			System.out.println("Awaiting input...");
 			return;
 		}
 		try {
@@ -102,6 +100,7 @@ public class HttpParser {
 			return;
 		}
 		if(line.remaining()==0) {
+			System.out.println("Headers received");
 			state=State.READING_BODY;
 			return;
 		}
@@ -113,6 +112,9 @@ public class HttpParser {
 			String value=ASCII_DECODER.decode(line).toString().trim();
 			System.out.println("Read header "+name+" | "+value);
 			request.setHeader(name, value);
+			if(name.equalsIgnoreCase(HEADER_HOST)) {
+				request.getUrl().setAuthority(value);
+			}
 		} catch (CharacterCodingException e) {
 			throw new HttpException("Malformed header: character encoding issue", e);
 		}
@@ -133,9 +135,9 @@ public class HttpParser {
 	 */
 	public HttpRequest parse() throws HttpException {		
 		needsInput=false;
-		BufferUtil.printBuffer(buffer);
 		try {
 			while(state!=State.RECEIVED&&buffer.hasRemaining()&&!needsInput) {
+				System.out.println("Loop");
 				switch(state) {
 				case AWAITING_REQUEST_LINE:
 					System.out.println("Awaiting request line");
@@ -153,13 +155,17 @@ public class HttpParser {
 					System.out.println("Default");
 					break;
 				}
+				System.out.println("End Loop: "+state.toString());
+				System.out.println("Has Remaining? "+buffer.hasRemaining());
 			}
 		}
 		catch(HttpException e) {
+			System.out.println("HTTP Exception");
 			System.err.println("Caught exception "+e.getMessage());
 			reset();
 			throw e;
 		}
+		System.out.println("End parsing: "+(request==null));
 		return request;
 	}
 

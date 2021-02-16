@@ -90,8 +90,27 @@ public class Url {
 	}
 	
 	public Url setPort(int port) {
+		System.out.println("Set port to "+port);
 		this.port=port;
 		return this;
+	}
+	
+	public void setAuthority(String authority) {
+		String[] split=authority.split(USER_INFO_SEPARATOR, 2);
+		String host;
+		if(split.length==2) {
+			this.setUserInfo(split[0]);
+			host=split[1];
+		}
+		else {
+			host=split[0];
+		}
+		split=host.split(PORT_SEPARATOR);
+		if(split.length==2) {
+			host=split[0];
+			this.setPort(Integer.parseInt(split[1]));
+		}
+		this.setHost(host);
 	}
 	
 	public String getPath() {
@@ -99,6 +118,7 @@ public class Url {
 	}
 	
 	public Url setPath(String path) {
+		System.out.println("Set path to "+path);
 		this.path=path;
 		return this;
 	}
@@ -125,11 +145,13 @@ public class Url {
 	}
 	
 	public Url setFragment(String fragment) {
+		System.out.println("Set fragment to "+fragment);
 		this.fragment=fragment;
 		return this;
 	}
 	
 	public String getAuthority() {
+		System.out.println("Getting authority");
 		StringBuilder builder=new StringBuilder();
 		if(!userInfo.isEmpty())
 			builder.append(userInfo).append(USER_INFO_SEPARATOR);
@@ -143,10 +165,11 @@ public class Url {
 	 * @return the relative portion of this URL(path, query, and fragment)
 	 */
 	public String toRelativeString() {
+		System.out.println("Getting relative string");
 		StringBuilder builder=new StringBuilder(path);
-		if(!query.isEmpty())
+		if(query!=null&&!query.isEmpty())
 			builder.append(QUERY_SEPARATOR).append(query);
-		if(!fragment.isEmpty())
+		if(fragment!=null&&!fragment.isEmpty())
 			builder.append(FRAGMENT_SEPARATOR).append(fragment);
 		return builder.toString();
 	}
@@ -155,11 +178,12 @@ public class Url {
 	 * @return the absolute URL
 	 */
 	public String toString() {
-		StringBuilder builder=new StringBuilder(scheme.toString());
-		builder.append(SCHEME_SEPARATOR);
-		builder.append(getAuthority());
-		builder.append(toRelativeString());
-		return builder.toString();
+		System.out.println("Printing URL");
+		return new StringBuilder(scheme.toString())
+				.append(SCHEME_SEPARATOR)
+				.append(getAuthority())
+				.append(toRelativeString())
+				.toString();
 	}
 	
 	public static Url parseRelative(String relativeUrl) {
@@ -168,9 +192,15 @@ public class Url {
 		int queryStart=relativeUrl.indexOf(QUERY_SEPARATOR);
 		if(fragmentStart!=-1&&queryStart>fragmentStart)
 			queryStart=-1;
-		int pathEnd=Math.min(queryStart, fragmentStart);
+		int pathEnd;
+		if(queryStart==-1||fragmentStart==-1) {
+			pathEnd=Math.max(queryStart, fragmentStart);
+		}
+		else {
+			pathEnd=Math.min(queryStart, fragmentStart);
+		}
 		url.setPath((pathEnd!=-1)?relativeUrl.substring(0, pathEnd):relativeUrl);
-		if(fragmentStart!=-1&&fragmentStart<relativeUrl.length()-1);
+		if(fragmentStart!=-1&&fragmentStart<relativeUrl.length()-1)
 			url.setFragment(relativeUrl.substring(fragmentStart+1));
 		if(queryStart!=-1&&queryStart<relativeUrl.length()-1)
 			url.setQuery(url.hasFragment()?relativeUrl.substring(queryStart+1, fragmentStart):relativeUrl.substring(queryStart+1));

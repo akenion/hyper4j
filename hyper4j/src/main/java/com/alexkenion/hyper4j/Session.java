@@ -31,6 +31,7 @@ public class Session {
 		lock.lock();
 		buffer.flip();
 		HttpRequest request=parser.parse();
+		System.out.println("Parsed request: "+request);
 		buffer.compact();
 		lock.unlock();
 		return request;
