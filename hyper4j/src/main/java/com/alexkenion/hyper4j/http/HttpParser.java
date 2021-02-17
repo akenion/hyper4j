@@ -2,7 +2,6 @@ package com.alexkenion.hyper4j.http;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
-import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 
 import com.alexkenion.hyper4j.util.BufferUtil;
@@ -68,7 +67,6 @@ public class HttpParser {
 		if(protocolVersion.getMajor()!=1) {
 			throw new HttpException("Unsupported protocol version: "+protocolVersion);
 		}
-		System.out.println("Protocol Version: "+protocolVersion);
 		request=new HttpRequest(components[0], Url.parseRelative(components[1]));
 	}
 	
@@ -132,26 +130,19 @@ public class HttpParser {
 		needsInput=false;
 		try {
 			while(state!=State.RECEIVED&&buffer.hasRemaining()&&!needsInput) {
-				System.out.println("Loop");
 				switch(state) {
 				case AWAITING_REQUEST_LINE:
-					System.out.println("Awaiting request line");
 					parseRequestLine();
 					break;
 				case READING_HEADERS:
-					System.out.println("Reading headers");
 					parseRequestHeaders();
 					break;
 				case READING_BODY:
-					System.out.println("Reading body");
 					readBody();
 					break;
 				default:
-					System.out.println("Default");
 					break;
 				}
-				System.out.println("End Loop: "+state.toString());
-				System.out.println("Has Remaining? "+buffer.hasRemaining());
 			}
 		}
 		catch(HttpException e) {

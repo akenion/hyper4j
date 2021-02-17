@@ -145,13 +145,11 @@ public class Url {
 	}
 	
 	public Url setFragment(String fragment) {
-		System.out.println("Set fragment to "+fragment);
 		this.fragment=fragment;
 		return this;
 	}
 	
 	public String getAuthority() {
-		System.out.println("Getting authority");
 		StringBuilder builder=new StringBuilder();
 		if(!userInfo.isEmpty())
 			builder.append(userInfo).append(USER_INFO_SEPARATOR);
@@ -165,7 +163,6 @@ public class Url {
 	 * @return the relative portion of this URL(path, query, and fragment)
 	 */
 	public String toRelativeString() {
-		System.out.println("Getting relative string");
 		StringBuilder builder=new StringBuilder(path);
 		if(query!=null&&!query.isEmpty())
 			builder.append(QUERY_SEPARATOR).append(query);
@@ -178,7 +175,6 @@ public class Url {
 	 * @return the absolute URL
 	 */
 	public String toString() {
-		System.out.println("Printing URL");
 		return new StringBuilder(scheme.toString())
 				.append(SCHEME_SEPARATOR)
 				.append(getAuthority())

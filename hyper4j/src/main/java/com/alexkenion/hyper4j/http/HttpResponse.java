@@ -37,7 +37,7 @@ public class HttpResponse extends HttpMessage {
 	
 	@Override
 	public void setBody(String body) {
-		this.setHeader(Http.HEADER_CONTENT_LENGTH, ""+body.length());
+		this.setHeader(Http.HEADER_CONTENT_LENGTH, body.length());
 		super.setBody(body);
 	}
 

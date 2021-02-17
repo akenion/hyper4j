@@ -17,6 +17,10 @@ public abstract class HttpMessage {
 		this.headers.put(key, value);
 	}
 	
+	public void setHeader(String key, int value) {
+		this.headers.put(key, Integer.toString(value));
+	}
+	
 	public String getHeader(String key) {
 		return this.headers.get(key);
 	}

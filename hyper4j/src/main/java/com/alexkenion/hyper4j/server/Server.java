@@ -14,7 +14,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import com.alexkenion.hyper4j.http.Http;
-import com.alexkenion.hyper4j.http.HttpException;
 import com.alexkenion.hyper4j.http.HttpRequest;
 import com.alexkenion.hyper4j.http.HttpResponse;
 

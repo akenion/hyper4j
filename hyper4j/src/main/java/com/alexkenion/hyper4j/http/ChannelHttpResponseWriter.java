@@ -58,10 +58,8 @@ public class ChannelHttpResponseWriter implements HttpResponseWriter {
 		String incompleteHeader=null;
 		try {
 			while(state!=State.BUFFERED) {
-				System.out.println("State: "+state);
 				boolean flush=false;
 				while(state!=State.BUFFERED&&buffer.hasRemaining()&&!flush) {
-					System.out.println("State B: "+state);
 					switch(state) {
 					case WRITING_STATUS:
 						writeStatusLine(protocolVersion, response);
