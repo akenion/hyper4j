@@ -1,4 +1,4 @@
-package com.alexkenion.hyper4j;
+package com.alexkenion.hyper4j.http;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -16,12 +16,7 @@ public class HttpParser {
 		RECEIVED
 	}
 
-	private static final byte[] CRLF=new byte[]{13, 10};
-	private static final byte[] COLON=new byte[]{58};
-	private static final String SPACE=" ";
-	private static final Charset CHARSET_ASCII=Charset.forName("ASCII");
-	private static final CharsetDecoder ASCII_DECODER=CHARSET_ASCII.newDecoder();
-	private static final String HEADER_HOST="Host";
+	private static final CharsetDecoder ASCII_DECODER=Http.ASCII.newDecoder();
 
 	private ByteBuffer buffer;
 	private State state;
@@ -66,7 +61,7 @@ public class HttpParser {
 	}
 	
 	private void parseRequestLine(String line) throws HttpException {
-		String[] components=line.split(SPACE, 3);
+		String[] components=line.split(Http.SPACE, 3);
 		if(components.length!=3)
 			throw new HttpException("Invalid request line: "+line);
 		protocolVersion=new HttpVersion(components[2]);
@@ -78,7 +73,7 @@ public class HttpParser {
 	}
 	
 	private void parseRequestLine() throws HttpException {
-		ByteBuffer requestLine=BufferUtil.readToDelimiter(buffer, CRLF);
+		ByteBuffer requestLine=BufferUtil.readToDelimiter(buffer, Http.Delimiter.CRLF.getBytes());
 		if(requestLine==null) {
 			if(checkBufferLimit())
 				throw new HttpException("Request line too long");
@@ -93,7 +88,7 @@ public class HttpParser {
 	}
 	
 	private void parseRequestHeaders() throws HttpException {
-		ByteBuffer line=BufferUtil.readToDelimiter(buffer, CRLF);
+		ByteBuffer line=BufferUtil.readToDelimiter(buffer, Http.Delimiter.CRLF.getBytes());
 		if(line==null) {
 			if(checkBufferLimit())
 				throw new HttpException("Request header too long");
@@ -104,7 +99,7 @@ public class HttpParser {
 			state=State.READING_BODY;
 			return;
 		}
-		ByteBuffer nameBuffer=BufferUtil.readToDelimiter(line, COLON);
+		ByteBuffer nameBuffer=BufferUtil.readToDelimiter(line, Http.Delimiter.COLON.getBytes());
 		if(nameBuffer==null||nameBuffer.remaining()==1)
 			throw new HttpException("Malformed header: no name found");
 		try {
@@ -112,7 +107,7 @@ public class HttpParser {
 			String value=ASCII_DECODER.decode(line).toString().trim();
 			System.out.println("Read header "+name+" | "+value);
 			request.setHeader(name, value);
-			if(name.equalsIgnoreCase(HEADER_HOST)) {
+			if(name.equalsIgnoreCase(Http.HEADER_HOST)) {
 				request.getUrl().setAuthority(value);
 			}
 		} catch (CharacterCodingException e) {
@@ -167,6 +162,10 @@ public class HttpParser {
 		}
 		System.out.println("End parsing: "+(request==null));
 		return request;
+	}
+	
+	public HttpVersion getCurrentProtocolVersion() {
+		return protocolVersion;
 	}
 
 }

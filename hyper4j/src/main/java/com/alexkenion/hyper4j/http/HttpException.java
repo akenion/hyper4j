@@ -1,4 +1,4 @@
-package com.alexkenion.hyper4j;
+package com.alexkenion.hyper4j.http;
 
 public class HttpException extends Exception {
 

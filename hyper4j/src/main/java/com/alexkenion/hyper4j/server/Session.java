@@ -1,13 +1,13 @@
-package com.alexkenion.hyper4j;
+package com.alexkenion.hyper4j.server;
 
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
-import java.nio.charset.CharacterCodingException;
-import java.nio.charset.Charset;
-import java.nio.charset.CharsetDecoder;
 import java.util.concurrent.locks.ReentrantLock;
 
-import com.alexkenion.hyper4j.util.BufferUtil;
+import com.alexkenion.hyper4j.http.HttpException;
+import com.alexkenion.hyper4j.http.HttpParser;
+import com.alexkenion.hyper4j.http.HttpRequest;
+import com.alexkenion.hyper4j.http.HttpVersion;
 
 public class Session {
 	
@@ -15,6 +15,7 @@ public class Session {
 	private ReentrantLock lock;
 	private ByteBuffer buffer;
 	private HttpParser parser;
+	private HttpVersion currentProtocolVersion;
 	
 	public Session(HttpServerSettings settings, SocketChannel channel) {
 		this.channel=channel;
@@ -32,6 +33,7 @@ public class Session {
 		buffer.flip();
 		HttpRequest request=parser.parse();
 		System.out.println("Parsed request: "+request);
+		currentProtocolVersion=parser.getCurrentProtocolVersion();
 		buffer.compact();
 		lock.unlock();
 		return request;
@@ -39,6 +41,10 @@ public class Session {
 	
 	public SocketChannel getChannel() {
 		return this.channel;
+	}
+	
+	public HttpVersion getCurrentProtocolVersion() {
+		return currentProtocolVersion;
 	}
 	
 	public void lock() {

@@ -1,4 +1,4 @@
-package com.alexkenion.hyper4j;
+package com.alexkenion.hyper4j.http;
 
 import java.util.TreeMap;
 
@@ -7,14 +7,10 @@ import java.util.TreeMap;
  * @author Alex Kenion
  *
  */
-public class HttpHeaders extends TreeMap<String, Object> {
+public class HttpHeaders extends TreeMap<String, String> {
 	
 	private static final long serialVersionUID = 9029261965791550972L;
 
-	public static class Value {
-		//
-	}
-	
 	public HttpHeaders() {
 		super(String.CASE_INSENSITIVE_ORDER);
 	}

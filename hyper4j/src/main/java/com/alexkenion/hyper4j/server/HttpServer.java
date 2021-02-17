@@ -1,4 +1,4 @@
-package com.alexkenion.hyper4j;
+package com.alexkenion.hyper4j.server;
 
 import java.io.IOException;
 import java.net.SocketAddress;
@@ -12,6 +12,9 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+
+import com.alexkenion.hyper4j.http.HttpRequest;
+import com.alexkenion.hyper4j.http.HttpResponse;
 
 public class HttpServer{
 	

@@ -1,8 +1,15 @@
-package com.alexkenion.hyper4j;
+package com.alexkenion.hyper4j.server;
 
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
+
+import com.alexkenion.hyper4j.http.ChannelHttpResponseWriter;
+import com.alexkenion.hyper4j.http.HttpException;
+import com.alexkenion.hyper4j.http.HttpRequest;
+import com.alexkenion.hyper4j.http.HttpResponse;
+import com.alexkenion.hyper4j.http.HttpResponseWriter;
+import com.alexkenion.hyper4j.http.HttpVersion;
 
 public class SessionWorker implements Runnable{
 	
@@ -49,7 +56,10 @@ public class SessionWorker implements Runnable{
 				return;
 			}
 			System.out.println("Request for "+request.getUrl()+" with method "+request.getMethod());
-			writeResponse(server.handleRequest(request));
+			HttpResponse response=server.handleRequest(request);
+			//writeResponse(response);
+			HttpResponseWriter writer=new ChannelHttpResponseWriter(session.getChannel(), 1024);
+			writer.write(session.getCurrentProtocolVersion(), response);
 		} catch (HttpException e1) {
 			System.err.println("Received malformed request");
 			e1.printStackTrace();
