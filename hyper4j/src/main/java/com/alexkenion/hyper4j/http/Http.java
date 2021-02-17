@@ -10,7 +10,8 @@ public class Http {
 	 */
 	public static final String
 		HEADER_HOST="Host",
-		HEADER_CONTENT_LENGTH="Content-Length";
+		HEADER_CONTENT_LENGTH="Content-Length",
+		HEADER_SERVER="Server";
 	
 	/**
 	 * Misc. protocol constants

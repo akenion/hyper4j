@@ -15,9 +15,9 @@ public class Session {
 	private ReentrantLock lock;
 	private ByteBuffer buffer;
 	private HttpParser parser;
-	private HttpVersion currentProtocolVersion;
+	private HttpVersion currentProtocolVersion=HttpVersion.V1_1;
 	
-	public Session(HttpServerSettings settings, SocketChannel channel) {
+	public Session(ServerSettings settings, SocketChannel channel) {
 		this.channel=channel;
 		this.lock=new ReentrantLock();
 		buffer=ByteBuffer.allocate(settings.getBufferSize());

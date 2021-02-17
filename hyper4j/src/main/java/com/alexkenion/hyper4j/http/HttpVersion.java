@@ -8,6 +8,8 @@ public class HttpVersion {
 	private static final String SEPARATOR=".";
 	private static final String TEMPLATE=PREFIX+"%d"+SEPARATOR+"%d";
 	
+	public static final HttpVersion V1_1=new HttpVersion(1, 1);
+	
 	private int major, minor;
 	
 	public HttpVersion(int major, int minor) {

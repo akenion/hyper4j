@@ -1,11 +1,13 @@
 package com.alexkenion.hyper4j.server;
 
+import com.alexkenion.hyper4j.Hyper4J;
+
 /**
  * Settings for receiving HTTP requests
  * @author Alex Kenion
  *
  */
-public class HttpServerSettings {
+public class ServerSettings {
 	
 	/**
 	 * RFC7230 Recommends a minimum request line length of 8000 octets
@@ -14,20 +16,27 @@ public class HttpServerSettings {
 	public static final int DEFAULT_BUFFER_SIZE=8000;
 	
 	private int bufferSize;
+	private String serverIdentifier;
 	
 	/**
 	 * Create a new settings instance with the specified values
 	 * @param bufferSize the size(in bytes) of the buffer
 	 */
-	public HttpServerSettings(int bufferSize) {
+	public ServerSettings(int bufferSize, String serverIdentifier) {
 		this.bufferSize=bufferSize;
+		this.serverIdentifier=serverIdentifier;
 	}
-	
+
 	/**
 	 * Create a new settings instance using the default values
 	 */
-	public HttpServerSettings() {
-		this(DEFAULT_BUFFER_SIZE);
+	public ServerSettings() {
+		this(DEFAULT_BUFFER_SIZE, Hyper4J.SERVER_IDENTIFIER);
+	}
+	
+	public ServerSettings setBufferSize(int bufferSize) {
+		this.bufferSize=bufferSize;
+		return this;
 	}
 	
 	/**
@@ -36,6 +45,19 @@ public class HttpServerSettings {
 	 */
 	public int getBufferSize() {
 		return bufferSize;
+	}
+	
+	public ServerSettings setServerIdentifier(String serverIdentifier) {
+		this.serverIdentifier=serverIdentifier;
+		return this;
+	}
+	
+	public boolean hasServerIdentifier() {
+		return serverIdentifier!=null;
+	}
+	
+	public String getServerIdentifier() {
+		return serverIdentifier;
 	}
 
 }

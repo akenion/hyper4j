@@ -1,46 +1,30 @@
 package com.alexkenion.hyper4j.server;
 
-import java.io.IOException;
-import java.nio.channels.SocketChannel;
-import java.nio.charset.Charset;
-
 import com.alexkenion.hyper4j.http.ChannelHttpResponseWriter;
 import com.alexkenion.hyper4j.http.HttpException;
 import com.alexkenion.hyper4j.http.HttpRequest;
 import com.alexkenion.hyper4j.http.HttpResponse;
 import com.alexkenion.hyper4j.http.HttpResponseWriter;
-import com.alexkenion.hyper4j.http.HttpVersion;
 
 public class SessionWorker implements Runnable{
 	
-	private HttpServer server;
+	private Server server;
 	private Session session;
+	private HttpResponseWriter writer;
 	
-	public SessionWorker(HttpServer server, Session session) {
+	public SessionWorker(Server server, Session session) {
 		this.server=server;
 		this.session=session;
+		this.writer=new ChannelHttpResponseWriter(session.getChannel(), server.getSettings().getBufferSize());
 	}
 	
 	private void writeResponse(HttpResponse response) {
-		response.setHeader("Server", "Hyper4J/0.0.0");
-		String body=response.getBody();
-		response.setHeader("Content-Length", body.length()+"");
-		Charset charset=Charset.forName("ISO-8859-1");
-		StringBuilder out=new StringBuilder();
-		out.append("HTTP/1.1 "+response.getStatus()+" OK\r\n");
-		for(String field:response.getHeaders().keySet()) {
-			String value=response.getHeader(field);
-			out.append(field+": "+value+"\r\n");
-		}
-		out.append("\r\n");
-		out.append(body);
-		System.out.println("Sending response: "+out);
-		SocketChannel client=session.getChannel();
 		try {
-			client.write(charset.encode(out.toString()));
-			//client.close();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
+			writer.write(session.getCurrentProtocolVersion(), response);
+		}
+		catch(HttpException e) {
+			//TODO: Implement proper error handling
+			System.err.println("Unable to write response");
 			e.printStackTrace();
 		}
 	}
@@ -57,13 +41,11 @@ public class SessionWorker implements Runnable{
 			}
 			System.out.println("Request for "+request.getUrl()+" with method "+request.getMethod());
 			HttpResponse response=server.handleRequest(request);
-			//writeResponse(response);
-			HttpResponseWriter writer=new ChannelHttpResponseWriter(session.getChannel(), 1024);
-			writer.write(session.getCurrentProtocolVersion(), response);
-		} catch (HttpException e1) {
+			writeResponse(response);
+		} catch (HttpException e) {
 			System.err.println("Received malformed request");
-			e1.printStackTrace();
-			writeResponse(new HttpResponse(400));
+			e.printStackTrace();
+			writeResponse(server.generateErrorResponse((short)400));
 		}
 		session.unlock();
 	}

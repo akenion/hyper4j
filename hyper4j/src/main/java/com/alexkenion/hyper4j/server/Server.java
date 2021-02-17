@@ -13,32 +13,38 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import com.alexkenion.hyper4j.http.Http;
+import com.alexkenion.hyper4j.http.HttpException;
 import com.alexkenion.hyper4j.http.HttpRequest;
 import com.alexkenion.hyper4j.http.HttpResponse;
 
-public class HttpServer{
+public class Server{
 	
 	private Set<SocketAddress> addresses;
-	private HttpServerSettings settings;
+	private ServerSettings settings;
 	private boolean running=false;
 	private RequestHandler handler;
 	private ExecutorService threadPool;
 	
-	public HttpServer(HttpServerSettings settings, Set<SocketAddress> addresses) {
+	public Server(ServerSettings settings, Set<SocketAddress> addresses) {
 		this.settings=settings;
 		this.addresses=addresses;
 	}
 	
-	public HttpServer(HttpServerSettings settings) {
+	public Server(ServerSettings settings) {
 		this(settings, new HashSet<SocketAddress>());
 	}
 	
-	public HttpServer(Set<SocketAddress> addresses) {
-		this(new HttpServerSettings(), addresses);
+	public Server(Set<SocketAddress> addresses) {
+		this(new ServerSettings(), addresses);
 	}
 	
-	public HttpServer() {
+	public Server() {
 		this(new HashSet<SocketAddress>());
+	}
+	
+	public ServerSettings getSettings() {
+		return this.settings;
 	}
 	
 	public void bind(SocketAddress address) {
@@ -49,8 +55,31 @@ public class HttpServer{
 		this.handler=handler;
 	}
 	
+	private HttpResponse postProcessResponse(HttpResponse response) {
+		if(response==null)
+			response=new HttpResponse(404);
+		if(settings.hasServerIdentifier())
+			response.setHeader(Http.HEADER_SERVER, settings.getServerIdentifier());
+		return response;
+	}
+	
+	public HttpResponse generateErrorResponse(short status, Exception exception) {
+		return postProcessResponse(new HttpResponse(status));
+	}
+	
+	public HttpResponse generateErrorResponse(short status) {
+		return generateErrorResponse(status, null);
+	}
+	
 	public HttpResponse handleRequest(HttpRequest request) {
-		return this.handler.handle(request);
+		HttpResponse response;
+		try {
+			response=this.handler.handle(request);
+		}
+		catch(Exception e) {
+			response=new HttpResponse(500);
+		}
+		return postProcessResponse(response);
 	}
 	
 	public void start() throws IOException {
@@ -128,11 +157,5 @@ public class HttpServer{
 		});
 		thread.start();
 	}
-	
-	//private Response handleRequest(Request request) {
-	//	Response response=new Response(204);
-	//	response.setHeader("Server", "Hyper4J/0.0.0");
-	//	return response;
-	//}
 
 }
