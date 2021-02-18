@@ -23,4 +23,8 @@ public class HttpRequest extends HttpMessage {
 		return url;
 	}
 	
+	public boolean shouldClose() {
+		return ConnectionOption.CLOSE.matches(getHeader(Http.HEADER_CONNECTION));
+	}
+	
 }

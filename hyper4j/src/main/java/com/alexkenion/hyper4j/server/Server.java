@@ -16,18 +16,28 @@ import java.util.concurrent.TimeUnit;
 import com.alexkenion.hyper4j.http.Http;
 import com.alexkenion.hyper4j.http.HttpRequest;
 import com.alexkenion.hyper4j.http.HttpResponse;
+import com.alexkenion.hyper4j.logging.LogLevel;
+import com.alexkenion.hyper4j.logging.Logger;
+import com.alexkenion.hyper4j.logging.NullLogger;
 
-public class Server{
+/**
+ * An HTTP server implementation that aims to be compliant with RFC 7230
+ * @author Alex Kenion
+ */
+public class Server implements SessionObserver {
 	
 	private Set<SocketAddress> addresses;
 	private ServerSettings settings;
+	private Logger logger;
 	private boolean running=false;
 	private RequestHandler handler;
 	private ExecutorService threadPool;
+	private Set<Session> sessions;
 	
 	public Server(ServerSettings settings, Set<SocketAddress> addresses) {
 		this.settings=settings;
 		this.addresses=addresses;
+		this.logger=new NullLogger();
 	}
 	
 	public Server(ServerSettings settings) {
@@ -50,6 +60,14 @@ public class Server{
 		addresses.add(address);
 	}
 	
+	public void setLogger(Logger logger) {
+		this.logger=logger;
+	}
+	
+	public Logger getLogger() {
+		return logger;
+	}
+
 	public void setHandler(RequestHandler handler) {
 		this.handler=handler;
 	}
@@ -83,6 +101,7 @@ public class Server{
 	
 	public void start() throws IOException {
 		running=true;
+		sessions=new HashSet<Session>();
 		threadPool=Executors.newFixedThreadPool(8);
 		Selector selector=Selector.open();
 		for(SocketAddress address:addresses) {
@@ -92,24 +111,26 @@ public class Server{
 			server.register(selector, SelectionKey.OP_ACCEPT);
 		}
 		while(running) {
-			selector.select();
+			selector.select(settings.getIdleTimeout());
 			Set<SelectionKey> selected=selector.selectedKeys();
 			Iterator<SelectionKey> iterator=selected.iterator();
 			while(iterator.hasNext()) {
 				SelectionKey key=iterator.next();
-				//System.out.println("Processing key...");
 				iterator.remove();
 				if(!key.isValid())
 					continue;
 				if(key.isValid()&&key.isAcceptable()) {
 					SocketChannel client=((ServerSocketChannel)key.channel()).accept();
 					if(client==null) {
-						System.out.println("Client is null");
+						logger.log(LogLevel.DEBUG, "Client is null");
 						continue;
 					}
-					System.out.println("Accepted connection from "+client.getRemoteAddress());
+					logger.log(LogLevel.DEBUG, String.format("Accepted connection from %s", client.getRemoteAddress()));
 					client.configureBlocking(false);
-					client.register(selector, SelectionKey.OP_READ, new Session(settings, client));
+					Session session=new Session(settings, client);
+					sessions.add(session);
+					session.setObserver(this);
+					client.register(selector, SelectionKey.OP_READ, session);
 				}
 				else if(key.isValid()&&key.isReadable()) {
 					Session session=(Session)key.attachment();
@@ -117,17 +138,23 @@ public class Server{
 					SocketChannel client=(SocketChannel)key.channel();
 					int read=0;
 					while(client.isOpen()&&session.getBuffer().hasRemaining()&&(read=client.read(session.getBuffer()))>0) {
-						System.out.println("Read "+read+" bytes from "+client.getRemoteAddress());
+						logger.log(LogLevel.DEBUG, String.format("Read %d bytes from %s", read, session.getClientAddress()));
 						if(read>0) {
 							threadPool.submit(new SessionWorker(this, session));
 							break;
 						}
 					}
 					if(read==-1) {
-						client.close();
-						System.out.println("Client disconnected");
+						session.terminate();
 					}
 					session.unlock();
+				}
+			}
+			long currentTime=System.currentTimeMillis();
+			for(Session session:sessions) {
+				if((currentTime-session.getLastInteraction())/1000>settings.getIdleTimeout()) {
+					logger.log(LogLevel.WARNING, String.format("Client %s has been idle for too long, disconnecting...", session.getClientAddress()));
+					session.terminate();
 				}
 			}
 		}
@@ -135,8 +162,7 @@ public class Server{
 		try {
 			threadPool.awaitTermination(1000, TimeUnit.MILLISECONDS);
 		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.log(LogLevel.ERROR, "Thread interrupted");
 		}
 	}
 	
@@ -148,13 +174,19 @@ public class Server{
 				try {
 					start();
 				} catch (IOException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					logger.log(LogLevel.ERROR, String.format("Server threw IOException: %s", e.getMessage()));
+					running=false;
 				}
 			}
 			
 		});
 		thread.start();
+	}
+
+	@Override
+	public void onTermination(Session session) {
+		logger.log(LogLevel.DEBUG, String.format("Client %s disconnected", session.getClientAddress()));
+		sessions.remove(session);
 	}
 
 }

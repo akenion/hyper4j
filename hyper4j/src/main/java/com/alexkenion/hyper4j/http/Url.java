@@ -90,7 +90,6 @@ public class Url {
 	}
 	
 	public Url setPort(int port) {
-		System.out.println("Set port to "+port);
 		this.port=port;
 		return this;
 	}
@@ -118,7 +117,6 @@ public class Url {
 	}
 	
 	public Url setPath(String path) {
-		System.out.println("Set path to "+path);
 		this.path=path;
 		return this;
 	}

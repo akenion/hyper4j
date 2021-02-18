@@ -5,6 +5,7 @@ import com.alexkenion.hyper4j.http.HttpException;
 import com.alexkenion.hyper4j.http.HttpRequest;
 import com.alexkenion.hyper4j.http.HttpResponse;
 import com.alexkenion.hyper4j.http.HttpResponseWriter;
+import com.alexkenion.hyper4j.logging.LogLevel;
 
 public class SessionWorker implements Runnable{
 	
@@ -23,9 +24,8 @@ public class SessionWorker implements Runnable{
 			writer.write(session.getCurrentProtocolVersion(), response);
 		}
 		catch(HttpException e) {
-			//TODO: Implement proper error handling
-			System.err.println("Unable to write response");
-			e.printStackTrace();
+			server.getLogger().log(LogLevel.ERROR, String.format("Unable to write response to client %s, caught: %s", session.getClientAddress(), e.getMessage()));
+			session.terminate();
 		}
 	}
 
@@ -34,18 +34,20 @@ public class SessionWorker implements Runnable{
 		session.lock();
 		try {
 			HttpRequest request=session.processInput();
-			System.out.println("Processing request: "+request);
 			if(request==null) {
-				System.out.println("No request");
+				server.getLogger().log(LogLevel.DEBUG, "No request");
 				return;
 			}
-			System.out.println("Request for "+request.getUrl()+" with method "+request.getMethod());
+			server.getLogger().log(LogLevel.INFO, String.format("Request for %s with method %s", request.getUrl(), request.getMethod()));
 			HttpResponse response=server.handleRequest(request);
 			writeResponse(response);
+			if(request.shouldClose())
+				session.terminate();
 		} catch (HttpException e) {
 			System.err.println("Received malformed request");
 			e.printStackTrace();
 			writeResponse(server.generateErrorResponse((short)400));
+			session.terminate();
 		}
 		session.unlock();
 	}

@@ -51,7 +51,6 @@ public class ChannelHttpResponseWriter implements HttpResponseWriter {
 	
 	@Override
 	public void write(HttpVersion protocolVersion, HttpResponse response) throws HttpException {
-		System.out.println("Writing response");
 		State state=State.WRITING_STATUS;
 		HttpHeaders headers=null;
 		Iterator<String> headerKeys=null;

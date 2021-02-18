@@ -4,6 +4,9 @@ import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CharsetDecoder;
 
+import com.alexkenion.hyper4j.logging.LogLevel;
+import com.alexkenion.hyper4j.logging.Logger;
+import com.alexkenion.hyper4j.logging.NullLogger;
 import com.alexkenion.hyper4j.util.BufferUtil;
 
 public class HttpParser {
@@ -22,10 +25,16 @@ public class HttpParser {
 	private boolean needsInput=false;
 	private HttpVersion protocolVersion=null;
 	private HttpRequest request;
+	private Logger logger;
+	
+	public HttpParser(ByteBuffer buffer, Logger logger) {
+		this.buffer=buffer;
+		this.logger=logger;
+		reset();
+	}
 	
 	public HttpParser(ByteBuffer buffer) {
-		this.buffer=buffer;
-		reset();
+		this(buffer, new NullLogger());
 	}
 	
 	public void reset() {
@@ -93,7 +102,7 @@ public class HttpParser {
 			return;
 		}
 		if(line.remaining()==0) {
-			System.out.println("Headers received");
+			logger.log(LogLevel.DEBUG, "Headers received");
 			state=State.READING_BODY;
 			return;
 		}
@@ -103,7 +112,7 @@ public class HttpParser {
 		try {
 			String name=ASCII_DECODER.decode(nameBuffer).toString();
 			String value=ASCII_DECODER.decode(line).toString().trim();
-			System.out.println("Read header "+name+" | "+value);
+			logger.log(LogLevel.DEBUG, String.format("Read header %s: %s", name, value));
 			request.setHeader(name, value);
 			if(name.equalsIgnoreCase(Http.HEADER_HOST)) {
 				request.getUrl().setAuthority(value);
@@ -146,12 +155,10 @@ public class HttpParser {
 			}
 		}
 		catch(HttpException e) {
-			System.out.println("HTTP Exception");
-			System.err.println("Caught exception "+e.getMessage());
+			logger.log(LogLevel.ERROR, String.format("HTTP parsing failed, caught: %s", e.getMessage()));
 			reset();
 			throw e;
 		}
-		System.out.println("End parsing: "+(request==null));
 		return request;
 	}
 	
