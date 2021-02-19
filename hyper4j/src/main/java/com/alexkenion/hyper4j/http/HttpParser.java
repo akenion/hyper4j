@@ -18,18 +18,18 @@ public class HttpParser {
 		RECEIVED
 	}
 
-	private static final CharsetDecoder ASCII_DECODER=Http.ASCII.newDecoder();
-
 	private ByteBuffer buffer;
 	private State state;
 	private boolean needsInput=false;
 	private HttpVersion protocolVersion=null;
 	private HttpRequest request;
 	private Logger logger;
+	private CharsetDecoder asciiDecoder;
 	
 	public HttpParser(ByteBuffer buffer, Logger logger) {
 		this.buffer=buffer;
 		this.logger=logger;
+		this.asciiDecoder=Http.ASCII.newDecoder();
 		reset();
 	}
 	
@@ -87,7 +87,7 @@ public class HttpParser {
 			return;
 		}
 		try {
-			parseRequestLine(ASCII_DECODER.decode(requestLine).toString());
+			parseRequestLine(asciiDecoder.decode(requestLine).toString());
 			state=State.READING_HEADERS;
 		} catch (CharacterCodingException e) {
 			throw new HttpException("Failed to parse request line", e);
@@ -110,14 +110,14 @@ public class HttpParser {
 		if(nameBuffer==null||nameBuffer.remaining()==1)
 			throw new HttpException("Malformed header: no name found");
 		try {
-			String name=ASCII_DECODER.decode(nameBuffer).toString();
-			String value=ASCII_DECODER.decode(line).toString().trim();
+			String name=asciiDecoder.decode(nameBuffer).toString();
+			String value=asciiDecoder.decode(line).toString().trim();
 			logger.log(LogLevel.DEBUG, String.format("Read header %s: %s", name, value));
 			request.setHeader(name, value);
 			if(name.equalsIgnoreCase(Http.HEADER_HOST)) {
 				request.getUrl().setAuthority(value);
 			}
-		} catch (CharacterCodingException e) {
+		} catch (Exception e) {
 			throw new HttpException("Malformed header: character encoding issue", e);
 		}
 	}
@@ -135,7 +135,7 @@ public class HttpParser {
 	 * allowing additional data to be added to the buffer and parsing to
 	 * continue.
 	 */
-	public HttpRequest parse() throws HttpException {		
+	public HttpRequest parse() throws HttpException {
 		needsInput=false;
 		try {
 			while(state!=State.RECEIVED&&buffer.hasRemaining()&&!needsInput) {

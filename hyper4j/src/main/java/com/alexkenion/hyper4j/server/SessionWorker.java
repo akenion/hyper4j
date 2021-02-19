@@ -25,29 +25,46 @@ public class SessionWorker implements Runnable{
 		}
 		catch(HttpException e) {
 			server.getLogger().log(LogLevel.ERROR, String.format("Unable to write response to client %s, caught: %s", session.getClientAddress(), e.getMessage()));
-			session.terminate();
+			try {
+				session.terminate();
+			} catch (LockException lockException) {
+				server.getLogger().log(LogLevel.ERROR, String.format("Failed to disconnect session %s with write error: unable to acquire session lock", session.getClientAddress()));
+			}
 		}
 	}
 
 	@Override
 	public void run() {
-		session.lock();
+		try {
+			session.lock();
+		}
+		catch(LockException e) {		
+			server.getLogger().log(LogLevel.ERROR, String.format("Unable to acquire session lock for %s", session.getClientAddress()));
+			return;
+		}
 		try {
 			HttpRequest request=session.processInput();
 			if(request==null) {
 				server.getLogger().log(LogLevel.DEBUG, "No request");
-				return;
 			}
-			server.getLogger().log(LogLevel.INFO, String.format("Request for %s with method %s", request.getUrl(), request.getMethod()));
-			HttpResponse response=server.handleRequest(request);
-			writeResponse(response);
-			if(request.shouldClose())
-				session.terminate();
+			else {
+				server.getLogger().log(LogLevel.INFO, String.format("Request for %s with method %s", request.getUrl(), request.getMethod()));
+				HttpResponse response=server.handleRequest(request);
+				writeResponse(response);
+				if(request.shouldClose())
+					session.terminate();
+			}
 		} catch (HttpException e) {
 			System.err.println("Received malformed request");
 			e.printStackTrace();
 			writeResponse(server.generateErrorResponse((short)400));
-			session.terminate();
+			try {
+				session.terminate();
+			} catch (LockException lockException) {
+				server.getLogger().log(LogLevel.ERROR, String.format("Failed to disconnect session %s with protocol error: unable to acquire session lock", session.getClientAddress()));
+			}
+		} catch (LockException e) {
+			server.getLogger().log(LogLevel.ERROR, String.format("Unable to acquire session lock for %s", session.getClientAddress()));
 		}
 		session.unlock();
 	}

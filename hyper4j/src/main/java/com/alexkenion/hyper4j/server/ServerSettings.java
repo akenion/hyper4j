@@ -19,6 +19,7 @@ public class ServerSettings {
 	private int bufferSize;
 	private String serverIdentifier;
 	private int idleTimeout;
+	private int workerCount;
 	
 	/**
 	 * Create a new settings instance using the default values
@@ -27,6 +28,7 @@ public class ServerSettings {
 		this.bufferSize=DEFAULT_BUFFER_SIZE;
 		this.serverIdentifier=Hyper4J.SERVER_IDENTIFIER;
 		this.idleTimeout=DEFAULT_IDLE_TIMEOUT;
+		this.workerCount=Runtime.getRuntime().availableProcessors();
 	}
 	
 	public ServerSettings setBufferSize(int bufferSize) {
@@ -62,12 +64,22 @@ public class ServerSettings {
 	/**
 	 * @param idleTimeout the max connection duration without transfer (in seconds) or 0 for unlimited
 	 */
-	public void setIdleTimeout(int idleTimeout) {
+	public ServerSettings setIdleTimeout(int idleTimeout) {
 		this.idleTimeout=idleTimeout;
+		return this;
 	}
 
 	public int getIdleTimeout() {
 		return idleTimeout;
+	}
+	
+	public ServerSettings setWorkerCount(int workerCount) {
+		this.workerCount=workerCount;
+		return this;
+	}
+	
+	public int getWorkerCount() {
+		return workerCount;
 	}
 	
 }

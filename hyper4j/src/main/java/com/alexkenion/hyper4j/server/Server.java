@@ -2,6 +2,7 @@ package com.alexkenion.hyper4j.server;
 
 import java.io.IOException;
 import java.net.SocketAddress;
+import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
@@ -12,6 +13,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 
 import com.alexkenion.hyper4j.http.Http;
 import com.alexkenion.hyper4j.http.HttpRequest;
@@ -33,11 +35,13 @@ public class Server implements SessionObserver {
 	private RequestHandler handler;
 	private ExecutorService threadPool;
 	private Set<Session> sessions;
+	private ReentrantLock sessionsLock;
 	
 	public Server(ServerSettings settings, Set<SocketAddress> addresses) {
 		this.settings=settings;
 		this.addresses=addresses;
 		this.logger=new NullLogger();
+		this.sessionsLock=new ReentrantLock();
 	}
 	
 	public Server(ServerSettings settings) {
@@ -102,7 +106,7 @@ public class Server implements SessionObserver {
 	public void start() throws IOException {
 		running=true;
 		sessions=new HashSet<Session>();
-		threadPool=Executors.newFixedThreadPool(8);
+		threadPool=Executors.newFixedThreadPool(settings.getWorkerCount());
 		Selector selector=Selector.open();
 		for(SocketAddress address:addresses) {
 			ServerSocketChannel server=ServerSocketChannel.open();
@@ -119,44 +123,61 @@ public class Server implements SessionObserver {
 				iterator.remove();
 				if(!key.isValid())
 					continue;
-				if(key.isValid()&&key.isAcceptable()) {
-					SocketChannel client=((ServerSocketChannel)key.channel()).accept();
-					if(client==null) {
-						logger.log(LogLevel.DEBUG, "Client is null");
-						continue;
-					}
-					logger.log(LogLevel.DEBUG, String.format("Accepted connection from %s", client.getRemoteAddress()));
-					client.configureBlocking(false);
-					Session session=new Session(settings, client);
-					sessions.add(session);
-					session.setObserver(this);
-					client.register(selector, SelectionKey.OP_READ, session);
-				}
-				else if(key.isValid()&&key.isReadable()) {
-					Session session=(Session)key.attachment();
-					session.lock();
-					SocketChannel client=(SocketChannel)key.channel();
-					int read=0;
-					while(client.isOpen()&&session.getBuffer().hasRemaining()&&(read=client.read(session.getBuffer()))>0) {
-						logger.log(LogLevel.DEBUG, String.format("Read %d bytes from %s", read, session.getClientAddress()));
-						if(read>0) {
-							threadPool.submit(new SessionWorker(this, session));
-							break;
+				try {
+					if(key.isValid()&&key.isAcceptable()) {
+						SocketChannel client=((ServerSocketChannel)key.channel()).accept();
+						if(client==null) {
+							logger.log(LogLevel.DEBUG, "Client is null");
+							continue;
 						}
+						logger.log(LogLevel.DEBUG, String.format("Accepted connection from %s", client.getRemoteAddress()));
+						client.configureBlocking(false);
+						Session session=new Session(settings, client);
+						sessions.add(session);
+						session.setObserver(this);
+						client.register(selector, SelectionKey.OP_READ, session);
 					}
-					if(read==-1) {
-						session.terminate();
+					else if(key.isValid()&&key.isReadable()) {
+						Session session=(Session)key.attachment();
+						session.lock();
+						SocketChannel client=(SocketChannel)key.channel();
+						int read=0;
+						while(client.isOpen()&&session.getBuffer().hasRemaining()&&(read=client.read(session.getBuffer()))>0) {
+							logger.log(LogLevel.DEBUG, String.format("Read %d bytes from %s", read, session.getClientAddress()));
+							if(read>0) {
+								threadPool.submit(new SessionWorker(this, session));
+								break;
+							}
+						}
+						if(read==-1) {
+							session.terminate();
+						}
+						session.unlock();
 					}
-					session.unlock();
+				}
+				catch(CancelledKeyException e) {
+					logger.log(LogLevel.WARNING, "Key cancelled");
+					key.channel().close();
+				}
+				catch(LockException e) {
+					logger.log(LogLevel.ERROR, "Failed to acquire session lock");
+					key.channel().close();
 				}
 			}
 			long currentTime=System.currentTimeMillis();
+			sessionsLock.lock();
 			for(Session session:sessions) {
 				if((currentTime-session.getLastInteraction())/1000>settings.getIdleTimeout()) {
 					logger.log(LogLevel.WARNING, String.format("Client %s has been idle for too long, disconnecting...", session.getClientAddress()));
-					session.terminate();
+					try{
+						session.terminate();
+					}
+					catch(LockException e) {
+						logger.log(LogLevel.WARNING, String.format("Failed to disconnect idle client %s: unable to acquire session lock", session.getClientAddress()));
+					}
 				}
 			}
+			sessionsLock.unlock();
 		}
 		selector.close();
 		try {
@@ -185,8 +206,10 @@ public class Server implements SessionObserver {
 
 	@Override
 	public void onTermination(Session session) {
+		sessionsLock.lock();
 		logger.log(LogLevel.DEBUG, String.format("Client %s disconnected", session.getClientAddress()));
 		sessions.remove(session);
+		sessionsLock.unlock();
 	}
 
 }

@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
 import com.alexkenion.hyper4j.http.HttpException;
@@ -12,6 +13,8 @@ import com.alexkenion.hyper4j.http.HttpRequest;
 import com.alexkenion.hyper4j.http.HttpVersion;
 
 public class Session {
+	
+	private static final long LOCK_TIMEOUT=60;
 	
 	private SocketChannel channel;
 	private SessionObserver observer;
@@ -47,15 +50,21 @@ public class Session {
 		return buffer;
 	}
 	
-	public HttpRequest processInput() throws HttpException {
+	public HttpRequest processInput() throws HttpException, LockException {
 		lock();
-		touch();
-		buffer.flip();
-		HttpRequest request=parser.parse();
-		currentProtocolVersion=parser.getCurrentProtocolVersion();
-		buffer.compact();
-		unlock();
-		return request;
+		try {
+			touch();
+			buffer.flip();
+			HttpRequest request=parser.parse();
+			currentProtocolVersion=parser.getCurrentProtocolVersion();
+			buffer.compact();
+			unlock();
+			return request;
+		}
+		catch(HttpException e) {
+			unlock();
+			throw e;
+		}
 	}
 	
 	public SocketChannel getChannel() {
@@ -66,21 +75,29 @@ public class Session {
 		return currentProtocolVersion;
 	}
 	
-	public void lock() {
-		lock.lock();
+	public void lock() throws LockException {
+		try {
+			if(!lock.tryLock(LOCK_TIMEOUT, TimeUnit.SECONDS)) {
+				throw new LockException(String.format("Lock timed out after %d seconds", LOCK_TIMEOUT));
+			}
+		} catch (InterruptedException e) {
+			throw new LockException("Thread interrupted");
+		}
 	}
 	
 	public void unlock() {
 		lock.unlock();
 	}
 	
-	public void terminate() {
+	public void terminate() throws LockException {
 		lock();
 		if(channel!=null) {
 			try {
 				channel.close();
 			}
 			catch(IOException e) {
+				System.err.println("Failed to close channel");
+				e.printStackTrace();
 				//Ignore errors on close
 			}
 			if(observer!=null)
