@@ -98,6 +98,7 @@ public class Server implements SessionObserver {
 			response=this.handler.handle(request);
 		}
 		catch(Exception e) {
+			logger.log(LogLevel.ERROR, "Exception while processing request: "+e.getMessage());;
 			response=new HttpResponse(500);
 		}
 		return postProcessResponse(response);
@@ -106,6 +107,7 @@ public class Server implements SessionObserver {
 	public void start() throws IOException {
 		running=true;
 		sessions=new HashSet<Session>();
+		//TODO: Ensure exceptions thrown in the worker threads do not go unnoticed
 		threadPool=Executors.newFixedThreadPool(settings.getWorkerCount());
 		Selector selector=Selector.open();
 		for(SocketAddress address:addresses) {
@@ -145,7 +147,7 @@ public class Server implements SessionObserver {
 						while(client.isOpen()&&session.getBuffer().hasRemaining()&&(read=client.read(session.getBuffer()))>0) {
 							logger.log(LogLevel.DEBUG, String.format("Read %d bytes from %s", read, session.getClientAddress()));
 							if(read>0) {
-								threadPool.submit(new SessionWorker(this, session));
+								threadPool.submit(new MonitoredRunnable(new SessionWorker(this, session), logger));
 								break;
 							}
 						}

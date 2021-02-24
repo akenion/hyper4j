@@ -23,6 +23,7 @@ public class HttpParser {
 	private boolean needsInput=false;
 	private HttpVersion protocolVersion=null;
 	private HttpRequest request;
+	private RawMessageBody body;
 	private Logger logger;
 	private CharsetDecoder asciiDecoder;
 	
@@ -42,6 +43,7 @@ public class HttpParser {
 		needsInput=true;
 		protocolVersion=null;
 		request=null;
+		body=null;
 	}
 	
 	public boolean hasRequest() {
@@ -123,7 +125,28 @@ public class HttpParser {
 	}
 	
 	private void readBody() {
-		state=State.RECEIVED;
+		if(request.hasBody()) {
+			if(body==null)
+				body=new RawMessageBody(request.getContentLength());
+			body.append(buffer);
+			if(body.isFull()) {
+				System.out.println("Read "+request.getContentLength()+" bytes of body data");
+				try {
+					ByteBuffer bodyData=body.getData();
+					bodyData.flip();
+					String bodyString=asciiDecoder.decode(bodyData).toString();
+					request.setBody(bodyString);
+					System.out.println("Read body: "+bodyString);
+				} catch (CharacterCodingException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				state=State.RECEIVED;
+			}
+		}
+		else {
+			state=State.RECEIVED;
+		}
 	}
 
 	/**

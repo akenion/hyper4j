@@ -12,7 +12,9 @@ public class Http {
 		HEADER_HOST="Host",
 		HEADER_CONTENT_LENGTH="Content-Length",
 		HEADER_SERVER="Server",
-		HEADER_CONNECTION="Connection";
+		HEADER_CONNECTION="Connection",
+		HEADER_WWW_AUTHENTICATE="WWW-Authenticate",
+		HEADER_AUTHORIZATION="Authorization";
 	
 	/**
 	 * Misc. protocol constants
