@@ -208,6 +208,10 @@ public class Server implements SessionObserver {
 
 	@Override
 	public void onTermination(Session session) {
+		threadPool.submit(new MonitoredRunnable(new SessionTerminator(this, session), logger));
+	}
+	
+	public void removeSession(Session session) {
 		sessionsLock.lock();
 		logger.log(LogLevel.DEBUG, String.format("Client %s disconnected", session.getClientAddress()));
 		sessions.remove(session);

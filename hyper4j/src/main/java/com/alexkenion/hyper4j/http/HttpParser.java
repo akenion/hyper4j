@@ -40,7 +40,7 @@ public class HttpParser {
 	
 	public void reset() {
 		state=State.AWAITING_REQUEST_LINE;
-		needsInput=true;
+		needsInput=false;
 		protocolVersion=null;
 		request=null;
 		body=null;
@@ -105,7 +105,7 @@ public class HttpParser {
 		}
 		if(line.remaining()==0) {
 			logger.log(LogLevel.DEBUG, "Headers received");
-			state=State.READING_BODY;
+			state=request.hasBody()?State.READING_BODY:State.RECEIVED;
 			return;
 		}
 		ByteBuffer nameBuffer=BufferUtil.readToDelimiter(line, Http.Delimiter.COLON.getBytes());
@@ -182,7 +182,9 @@ public class HttpParser {
 			reset();
 			throw e;
 		}
-		return request;
+		if(state==State.RECEIVED)
+			return request;
+		return null;
 	}
 	
 	public HttpVersion getCurrentProtocolVersion() {

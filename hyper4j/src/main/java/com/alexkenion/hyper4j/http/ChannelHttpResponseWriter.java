@@ -107,6 +107,7 @@ public class ChannelHttpResponseWriter implements HttpResponseWriter {
 			reset();
 		}
 		catch(Exception e) {
+			e.printStackTrace();
 			reset();
 			throw new HttpException("Failed to write response", e);
 		}

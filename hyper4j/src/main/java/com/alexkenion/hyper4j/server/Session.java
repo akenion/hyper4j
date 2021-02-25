@@ -57,6 +57,8 @@ public class Session {
 			buffer.flip();
 			HttpRequest request=parser.parse();
 			currentProtocolVersion=parser.getCurrentProtocolVersion();
+			if(request!=null)
+				parser.reset();
 			buffer.compact();
 			unlock();
 			return request;

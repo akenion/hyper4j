@@ -23,7 +23,6 @@ public class Credentials {
 		String authorization=request.getHeader(Http.HEADER_AUTHORIZATION);
 		if(authorization==null)
 			return null;
-		System.out.println("Authorization header: "+authorization);
 		String[] parts=authorization.split(Http.SPACE, 2);
 		if(parts.length!=2)
 			return null;
