@@ -7,8 +7,10 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -21,6 +23,7 @@ import com.alexkenion.hyper4j.http.HttpResponse;
 import com.alexkenion.hyper4j.logging.LogLevel;
 import com.alexkenion.hyper4j.logging.Logger;
 import com.alexkenion.hyper4j.logging.NullLogger;
+import com.alexkenion.hyper4j.tls.TlsSettings;
 
 /**
  * An HTTP server implementation that aims to be compliant with RFC 7230
@@ -28,7 +31,7 @@ import com.alexkenion.hyper4j.logging.NullLogger;
  */
 public class Server implements SessionObserver {
 	
-	private Set<SocketAddress> addresses;
+	private Map<SocketAddress, SessionManager> addresses;
 	private ServerSettings settings;
 	private Logger logger;
 	private boolean running=false;
@@ -36,24 +39,18 @@ public class Server implements SessionObserver {
 	private ExecutorService threadPool;
 	private Set<Session> sessions;
 	private ReentrantLock sessionsLock;
-	
-	public Server(ServerSettings settings, Set<SocketAddress> addresses) {
-		this.settings=settings;
-		this.addresses=addresses;
-		this.logger=new NullLogger();
-		this.sessionsLock=new ReentrantLock();
-	}
+	private ServerObserver observer=null;
 	
 	public Server(ServerSettings settings) {
-		this(settings, new HashSet<SocketAddress>());
-	}
-	
-	public Server(Set<SocketAddress> addresses) {
-		this(new ServerSettings(), addresses);
+		this.settings=settings;
+		this.addresses=new HashMap<SocketAddress, SessionManager>();
+		this.logger=new NullLogger();
+		this.sessionsLock=new ReentrantLock();
+		this.observer=new NullServerObserver();
 	}
 	
 	public Server() {
-		this(new HashSet<SocketAddress>());
+		this(new ServerSettings());
 	}
 	
 	public ServerSettings getSettings() {
@@ -61,7 +58,11 @@ public class Server implements SessionObserver {
 	}
 	
 	public void bind(SocketAddress address) {
-		addresses.add(address);
+		addresses.put(address, new StandardSessionManager(settings));
+	}
+	
+	public void bind(SocketAddress address, TlsSettings tlsSettings) {
+		addresses.put(address, new SecureSessionManager(settings, tlsSettings));
 	}
 	
 	public void setLogger(Logger logger) {
@@ -74,6 +75,10 @@ public class Server implements SessionObserver {
 
 	public void setHandler(RequestHandler handler) {
 		this.handler=handler;
+	}
+	
+	public void setObserver(ServerObserver observer) {
+		this.observer=observer;
 	}
 	
 	private HttpResponse postProcessResponse(HttpResponse response) {
@@ -110,11 +115,12 @@ public class Server implements SessionObserver {
 		//TODO: Ensure exceptions thrown in the worker threads do not go unnoticed
 		threadPool=Executors.newFixedThreadPool(settings.getWorkerCount());
 		Selector selector=Selector.open();
-		for(SocketAddress address:addresses) {
+		for(SocketAddress address:addresses.keySet()) {
 			ServerSocketChannel server=ServerSocketChannel.open();
 			server.bind(address);
 			server.configureBlocking(false);
-			server.register(selector, SelectionKey.OP_ACCEPT);
+			SelectionKey key=server.register(selector, SelectionKey.OP_ACCEPT);
+			key.attach(addresses.get(address));
 		}
 		while(running) {
 			selector.select(settings.getIdleTimeout());
@@ -134,7 +140,7 @@ public class Server implements SessionObserver {
 						}
 						logger.log(LogLevel.DEBUG, String.format("Accepted connection from %s", client.getRemoteAddress()));
 						client.configureBlocking(false);
-						Session session=new Session(settings, client);
+						Session session=((SessionManager)key.attachment()).createSession(client);
 						sessions.add(session);
 						session.setObserver(this);
 						client.register(selector, SelectionKey.OP_READ, session);
@@ -187,6 +193,7 @@ public class Server implements SessionObserver {
 		} catch (InterruptedException e) {
 			logger.log(LogLevel.ERROR, "Thread interrupted");
 		}
+		observer.onStop();
 	}
 	
 	public void startInThread() {
@@ -204,6 +211,10 @@ public class Server implements SessionObserver {
 			
 		});
 		thread.start();
+	}
+	
+	public void stop() {
+		running=false;
 	}
 
 	@Override

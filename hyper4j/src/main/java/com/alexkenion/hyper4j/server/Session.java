@@ -7,10 +7,12 @@ import java.nio.channels.SocketChannel;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.alexkenion.hyper4j.http.ChannelOutputBufferConsumer;
 import com.alexkenion.hyper4j.http.HttpException;
 import com.alexkenion.hyper4j.http.HttpParser;
 import com.alexkenion.hyper4j.http.HttpRequest;
 import com.alexkenion.hyper4j.http.HttpVersion;
+import com.alexkenion.hyper4j.http.OutputBufferConsumer;
 
 public class Session {
 	
@@ -20,7 +22,7 @@ public class Session {
 	private SessionObserver observer;
 	private ReentrantLock lock;
 	private ByteBuffer buffer;
-	private HttpParser parser;
+	protected HttpParser parser;
 	private HttpVersion currentProtocolVersion=HttpVersion.V1_1;
 	private long lastInteraction;
 	private SocketAddress clientAddress;
@@ -50,16 +52,22 @@ public class Session {
 		return buffer;
 	}
 	
+	protected HttpRequest handleHttp(ByteBuffer buffer) throws HttpException {
+		buffer.flip();
+		System.out.println("Remaining in buffer: "+buffer.remaining()+", "+buffer.limit()+", "+buffer.capacity());
+		HttpRequest request=parser.parse();
+		currentProtocolVersion=parser.getCurrentProtocolVersion();
+		if(request!=null)
+			parser.reset();
+		buffer.compact();
+		return request;
+	}
+	
 	public HttpRequest processInput() throws HttpException, LockException {
 		lock();
 		try {
 			touch();
-			buffer.flip();
-			HttpRequest request=parser.parse();
-			currentProtocolVersion=parser.getCurrentProtocolVersion();
-			if(request!=null)
-				parser.reset();
-			buffer.compact();
+			HttpRequest request=handleHttp(buffer);
 			unlock();
 			return request;
 		}
@@ -119,6 +127,10 @@ public class Session {
 	
 	public SocketAddress getClientAddress() {
 		return clientAddress;
+	}
+	
+	public OutputBufferConsumer getOutputBufferConsumer() {
+		return new ChannelOutputBufferConsumer(channel);
 	}
 
 }

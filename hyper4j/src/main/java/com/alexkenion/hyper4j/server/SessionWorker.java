@@ -1,6 +1,6 @@
 package com.alexkenion.hyper4j.server;
 
-import com.alexkenion.hyper4j.http.ChannelHttpResponseWriter;
+import com.alexkenion.hyper4j.http.BufferHttpResponseWriter;
 import com.alexkenion.hyper4j.http.HttpException;
 import com.alexkenion.hyper4j.http.HttpRequest;
 import com.alexkenion.hyper4j.http.HttpResponse;
@@ -16,7 +16,7 @@ public class SessionWorker implements Runnable{
 	public SessionWorker(Server server, Session session) {
 		this.server=server;
 		this.session=session;
-		this.writer=new ChannelHttpResponseWriter(session.getChannel(), server.getSettings().getBufferSize());
+		this.writer=new BufferHttpResponseWriter(server.getSettings().getBufferSize(), session.getOutputBufferConsumer());
 	}
 	
 	private void writeResponse(HttpResponse response) {

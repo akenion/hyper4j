@@ -59,14 +59,17 @@ public class HttpParser {
 	}
 	
 	private boolean isBufferFull() {
-		return buffer.limit()<buffer.capacity();
+		return buffer.limit()==buffer.capacity();
 	}
 	
 	private boolean checkBufferLimit() throws HttpException {
+		System.out.println("Remaining in buffer: "+buffer.remaining()+", "+buffer.limit()+", "+buffer.capacity());
 		if(!isBufferFull()) {
+			System.out.println("Buffer not full");
 			needsInput=true;
 			return false;
 		}
+		System.out.println("Buffer full");
 		return true;
 	}
 	
