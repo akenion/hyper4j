@@ -22,6 +22,10 @@ public class QueryString {
 		return parameters;
 	}
 	
+	public String get(String key) {
+		return parameters.get(key);
+	}
+	
 	@Override
 	public String toString() {
 		StringBuilder builder=new StringBuilder();

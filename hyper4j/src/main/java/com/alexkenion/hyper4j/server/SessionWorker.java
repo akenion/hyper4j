@@ -32,6 +32,14 @@ public class SessionWorker implements Runnable{
 			}
 		}
 	}
+	
+	private void terminateSession() {
+		try {
+			session.terminate();
+		} catch (LockException lockException) {
+			server.getLogger().log(LogLevel.ERROR, String.format("Failed to disconnect session %s with protocol error: unable to acquire session lock", session.getClientAddress()));
+		}
+	}
 
 	@Override
 	public void run() {
@@ -55,16 +63,13 @@ public class SessionWorker implements Runnable{
 					session.terminate();
 			}
 		} catch (HttpException e) {
-			System.err.println("Received malformed request");
-			e.printStackTrace();
 			writeResponse(server.generateErrorResponse((short)400));
-			try {
-				session.terminate();
-			} catch (LockException lockException) {
-				server.getLogger().log(LogLevel.ERROR, String.format("Failed to disconnect session %s with protocol error: unable to acquire session lock", session.getClientAddress()));
-			}
+			terminateSession();
 		} catch (LockException e) {
 			server.getLogger().log(LogLevel.ERROR, String.format("Unable to acquire session lock for %s", session.getClientAddress()));
+		} catch (SessionException e) {
+			server.getLogger().log(LogLevel.ERROR, String.format("An unexpected session error occurred for %s", session.getClientAddress()));
+			terminateSession();
 		}
 		session.unlock();
 	}

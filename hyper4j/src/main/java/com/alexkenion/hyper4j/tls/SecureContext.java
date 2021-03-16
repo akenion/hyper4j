@@ -1,6 +1,5 @@
 package com.alexkenion.hyper4j.tls;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.KeyManagementException;
@@ -8,7 +7,6 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
-import java.security.cert.CertificateException;
 
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
@@ -23,23 +21,25 @@ import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 
 import com.alexkenion.hyper4j.http.OutputBufferConsumer;
+import com.alexkenion.hyper4j.logging.LogLevel;
+import com.alexkenion.hyper4j.logging.Logger;
 import com.alexkenion.hyper4j.server.ServerSettings;
 
 public class SecureContext implements OutputBufferConsumer {
 	
-	private enum State {
-		//
-	}
-	
 	private final TlsSettings settings;
 	private final TransportLayer transport;
+	private final Logger logger;
+	private KeyStore keyStore;
 	private SSLEngine engine;
 	private SSLSession session;
 	private ByteBuffer inputApp, inputNet, outputApp, outputNet;
 	
-	public SecureContext(TlsSettings settings, TransportLayer transport) throws TlsException {
+	public SecureContext(TlsSettings settings, TransportLayer transport, Logger logger) throws TlsException {
 		this.settings=settings;
 		this.transport=transport;
+		this.logger=logger;
+		this.keyStore=settings.getKeyStoreProvider().loadKeyStore();
 		initializeEngine();
 		initializeSession();
 	}
@@ -67,23 +67,11 @@ public class SecureContext implements OutputBufferConsumer {
 		outputApp=ByteBuffer.allocate(session.getApplicationBufferSize());
 		outputNet=ByteBuffer.allocate(session.getPacketBufferSize());
 	}
-	
-	private KeyStore getKeyStore() throws TlsException {
-		try {
-			KeyStore keyStore=KeyStore.getInstance("PKCS12");
-			char[] password="test".toCharArray();
-			keyStore.load(new FileInputStream("/home/alex/hyper4j-test/keystore.pkcs12"), password);
-			return keyStore;
-		} catch (KeyStoreException | NoSuchAlgorithmException | CertificateException | IOException e) {
-			throw new TlsException("Unable to retrieve key store", e);
-		}
-	}
-	
+
 	private KeyManager[] getKeyManagers() throws TlsException {
-		KeyStore keyStore=getKeyStore();
 		try {
 			KeyManagerFactory keyManagerFactory=KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-			keyManagerFactory.init(keyStore, "test".toCharArray());
+			keyManagerFactory.init(keyStore, settings.getKeyStoreProvider().getPassword());
 			return keyManagerFactory.getKeyManagers();
 		} catch (NoSuchAlgorithmException | UnrecoverableKeyException | KeyStoreException e) {
 			throw new TlsException("Unable to retrieve key manager factory", e);
@@ -92,7 +80,6 @@ public class SecureContext implements OutputBufferConsumer {
 	
 	private TrustManager[] getTrustManagers() throws TlsException {
 		try {
-			KeyStore keyStore=getKeyStore();
 			TrustManagerFactory trustManagerFactory=TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
 			trustManagerFactory.init(keyStore);
 			return trustManagerFactory.getTrustManagers();
@@ -102,55 +89,52 @@ public class SecureContext implements OutputBufferConsumer {
 		}
 	}
 	
-	private void wrap() throws SSLException {
+	private void wrap() throws SSLException, TlsException {
 		outputNet.clear();
 		SSLEngineResult result=engine.wrap(outputApp, outputNet);
-		if(result.getStatus()!=Status.OK) {
-			System.err.println(result.getStatus()+" on wrap");
+		if(result.getStatus()==Status.OK) {
+			outputNet.flip();
+			transport.send(outputNet);
 		}
-		outputNet.flip();
-		transport.send(outputNet);
+		else {
+			logger.log(LogLevel.WARNING, "TLS wrap failed: "+result.getStatus());
+		}
 	}
 	
 	private boolean unwrap() throws SSLException {
 		inputNet.flip();
 		SSLEngineResult result=engine.unwrap(inputNet, inputApp);
 		inputNet.compact();
-		if(result.getStatus()!=Status.OK) {
-			System.err.println(result.getStatus()+" on unwrap");
+		Status status=result.getStatus();
+		switch(status) {
+		case OK:
+			logger.log(LogLevel.DEBUG, "TLS unwrap succeeded");
+			break;
+		case CLOSED:
+			break;
+		case BUFFER_UNDERFLOW:			
+			logger.log(LogLevel.DEBUG, "TLS unwrap buffer underflow, awaiting more data");
 			return false;
+		default:
+			logger.log(LogLevel.WARNING, "TLS unwrap failed: "+status);
+			break;
 		}
-		System.out.println(inputApp.remaining()+"/"+inputApp.capacity());
-		//inputApp.flip();
-		if(result.getStatus()==Status.BUFFER_OVERFLOW) {
-			System.out.println("Underflow, need more data");
-			return false;
-		}
-		else if(result.getStatus()==Status.OK) {
-			System.out.println("Unwrap successful, need to process data...");
-			return true;
-		}
-		System.out.println("Unwrap successful");
 		return true;
 	}
 	
-	public void performHandshake() throws SSLException {
+	public void performHandshake() throws SSLException, TlsException {
 		HandshakeStatus handshakeStatus;
 		do {
 			handshakeStatus=engine.getHandshakeStatus();
-			System.out.println("Handshake Status: "+handshakeStatus);
 			switch(handshakeStatus) {
 			case NEED_UNWRAP:
-				System.out.println("Performing unwrap");
 				if(!unwrap())
 					return;
 				break;
 			case NEED_WRAP:
-				System.out.println("Performing wrap");
 				wrap();
 				break;
 			case NEED_TASK:
-				System.out.println("Performing task");
 				Runnable task=engine.getDelegatedTask();
 				task.run();
 				break;
@@ -172,17 +156,22 @@ public class SecureContext implements OutputBufferConsumer {
 	
 	public void pushData(ByteBuffer data) {
 		data.flip();
-		System.out.println("Pushing data: "+data.remaining()+", "+inputNet.remaining()+"/"+inputNet.capacity());
 		this.inputNet.put(data);
 		data.compact();
 	}
 	
-	public void processData(boolean initial) throws TlsException {
+	public void startHandshake() throws TlsException {
 		try {
-			if(initial) {
-				inputNet.clear();
-				engine.beginHandshake();
-			}
+			inputNet.clear();
+			engine.beginHandshake();
+		}
+		catch(Exception e) {
+			throw new TlsException("Failed to start TLS handshake", e);
+		}
+	}
+	
+	public void processData() throws TlsException {
+		try {
 			performHandshake();
 			unwrap();
 		}
@@ -194,11 +183,15 @@ public class SecureContext implements OutputBufferConsumer {
 	@Override
 	public void consume(ByteBuffer buffer) throws IOException {
 		buffer.flip();
-		System.out.println("Wrapping "+buffer.remaining());
 		outputApp.put(buffer);
 		outputApp.flip();
 		buffer.clear();
-		wrap();
+		try {
+			wrap();
+		}
+		catch(TlsException e) {
+			throw new IOException("Failed to send output", e);
+		}
 	}
 
 }

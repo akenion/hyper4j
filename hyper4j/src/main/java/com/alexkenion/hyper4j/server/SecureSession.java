@@ -8,6 +8,8 @@ import com.alexkenion.hyper4j.http.HttpException;
 import com.alexkenion.hyper4j.http.HttpParser;
 import com.alexkenion.hyper4j.http.HttpRequest;
 import com.alexkenion.hyper4j.http.OutputBufferConsumer;
+import com.alexkenion.hyper4j.logging.LogLevel;
+import com.alexkenion.hyper4j.logging.Logger;
 import com.alexkenion.hyper4j.tls.SecureContext;
 import com.alexkenion.hyper4j.tls.TlsException;
 import com.alexkenion.hyper4j.tls.TlsSettings;
@@ -17,40 +19,27 @@ public class SecureSession extends Session implements TransportLayer {
 	
 	private SecureContext secureContext;
 
-	public SecureSession(ServerSettings settings, SocketChannel channel) throws TlsException {
-		super(settings, channel);
-		secureContext=new SecureContext(new TlsSettings("TLSv1.2"), this);
-		System.out.println("Processing new TLS data");
-		secureContext.processData(true);
-		this.parser=new HttpParser(secureContext.getInputBuffer());
+	public SecureSession(ServerSettings settings, SocketChannel channel, TlsSettings tlsSettings, Logger logger) throws TlsException {
+		super(settings, channel, logger);
+		secureContext=new SecureContext(tlsSettings, this, logger);
+		secureContext.startHandshake();
+	}
+	
+	protected HttpParser initializeHttpParser() {
+		return new HttpParser(secureContext.getInputBuffer());
 	}
 
 	@Override
-	public HttpRequest processInput() throws HttpException, LockException {
-		System.out.println("Processing TLS input");
+	public HttpRequest processInput() throws SessionException, HttpException, LockException {
 		lock();
 		touch();
 		try {
 			secureContext.pushData(this.getBuffer());
-			secureContext.processData(false);
-			ByteBuffer in=secureContext.getInputBuffer();
-			System.out.println("Input bytes: "+in.remaining());
-			//try {
-			//	CharBuffer decoded=Charset.forName("ASCII").newDecoder().decode(in);
-			//	System.out.println(decoded);
-			//} catch (CharacterCodingException e) {
-			//	// TODO Auto-generated catch block
-			//	e.printStackTrace();
-			//}
-			HttpRequest request=handleHttp(secureContext.getInputBuffer());
-			return request;
-		}
-		catch (HttpException e) {
-			throw e;
+			secureContext.processData();
+			return handleHttp(secureContext.getInputBuffer());
 		}
 		catch (TlsException e) {
-			e.printStackTrace();
-			return null;
+			throw new SessionException("Failed to process TLS input", e);
 		}
 		finally {
 			unlock();
@@ -60,21 +49,20 @@ public class SecureSession extends Session implements TransportLayer {
 	@Override
 	public void send(ByteBuffer data) {
 		try {
-			System.out.println("Sending "+data.remaining()+" bytes");
 			getChannel().write(data);
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.log(LogLevel.ERROR, String.format("Failed to send TLS encrypted data to client: %s", getClientAddress()));
 		}
-	}
-
-	@Override
-	public void receive(ByteBuffer data) {
 	}
 	
 	@Override
 	public OutputBufferConsumer getOutputBufferConsumer() {
 		return this.secureContext;
+	}
+
+	@Override
+	public int getBufferSize() {
+		return settings.getBufferSize();
 	}
 
 }

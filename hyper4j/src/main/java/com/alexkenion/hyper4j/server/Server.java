@@ -58,11 +58,11 @@ public class Server implements SessionObserver {
 	}
 	
 	public void bind(SocketAddress address) {
-		addresses.put(address, new StandardSessionManager(settings));
+		addresses.put(address, new StandardSessionManager(settings, logger));
 	}
 	
 	public void bind(SocketAddress address, TlsSettings tlsSettings) {
-		addresses.put(address, new SecureSessionManager(settings, tlsSettings));
+		addresses.put(address, new SecureSessionManager(settings, tlsSettings, logger));
 	}
 	
 	public void setLogger(Logger logger) {

@@ -7,6 +7,7 @@ public class HttpResponse extends HttpMessage {
 	public HttpResponse(short status, HttpHeaders headers) {
 		super(headers);
 		this.status=status;
+		setBody("");
 	}
 
 	public HttpResponse(short status) {

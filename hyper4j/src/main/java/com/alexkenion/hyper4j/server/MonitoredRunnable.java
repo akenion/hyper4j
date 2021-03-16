@@ -19,9 +19,7 @@ public class MonitoredRunnable implements Runnable{
 			runnable.run();
 		}
 		catch(Throwable t) {
-			t.printStackTrace();
-			System.err.println("Uncaught throwable: "+t.getMessage());
-			//logger.log(LogLevel.ERROR, "Uncaught exception: "+t.getMessage());
+			logger.log(LogLevel.ERROR, "Uncaught exception: "+t.getMessage());
 		}
 	}
 

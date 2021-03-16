@@ -13,6 +13,8 @@ import com.alexkenion.hyper4j.http.HttpParser;
 import com.alexkenion.hyper4j.http.HttpRequest;
 import com.alexkenion.hyper4j.http.HttpVersion;
 import com.alexkenion.hyper4j.http.OutputBufferConsumer;
+import com.alexkenion.hyper4j.logging.LogLevel;
+import com.alexkenion.hyper4j.logging.Logger;
 
 public class Session {
 	
@@ -22,18 +24,32 @@ public class Session {
 	private SessionObserver observer;
 	private ReentrantLock lock;
 	private ByteBuffer buffer;
-	protected HttpParser parser;
+	private HttpParser parser;
 	private HttpVersion currentProtocolVersion=HttpVersion.V1_1;
 	private long lastInteraction;
 	private SocketAddress clientAddress;
 	
-	public Session(ServerSettings settings, SocketChannel channel) {
+	protected ServerSettings settings;
+	protected Logger logger;
+	
+	public Session(ServerSettings settings, SocketChannel channel, Logger logger) {
+		this.settings=settings;
 		this.channel=channel;
+		this.logger=logger;
 		this.lock=new ReentrantLock();
 		buffer=ByteBuffer.allocate(settings.getBufferSize());
-		this.parser=new HttpParser(buffer);
 		touch();
 		this.setClientAddress();
+	}
+	
+	protected HttpParser initializeHttpParser() {
+		return new HttpParser(buffer);
+	}
+	
+	private HttpParser getHttpParser() {
+		if(parser==null)
+			parser=initializeHttpParser();
+		return parser;
 	}
 	
 	public void setObserver(SessionObserver observer) {
@@ -54,7 +70,7 @@ public class Session {
 	
 	protected HttpRequest handleHttp(ByteBuffer buffer) throws HttpException {
 		buffer.flip();
-		System.out.println("Remaining in buffer: "+buffer.remaining()+", "+buffer.limit()+", "+buffer.capacity());
+		HttpParser parser=getHttpParser();
 		HttpRequest request=parser.parse();
 		currentProtocolVersion=parser.getCurrentProtocolVersion();
 		if(request!=null)
@@ -63,17 +79,14 @@ public class Session {
 		return request;
 	}
 	
-	public HttpRequest processInput() throws HttpException, LockException {
+	public HttpRequest processInput() throws SessionException, HttpException, LockException {
 		lock();
+		touch();
 		try {
-			touch();
-			HttpRequest request=handleHttp(buffer);
-			unlock();
-			return request;
+			return handleHttp(buffer);
 		}
-		catch(HttpException e) {
+		finally {
 			unlock();
-			throw e;
 		}
 	}
 	
@@ -106,9 +119,8 @@ public class Session {
 				channel.close();
 			}
 			catch(IOException e) {
-				System.err.println("Failed to close channel");
-				e.printStackTrace();
 				//Ignore errors on close
+				logger.log(LogLevel.WARNING, String.format("Failed to close channel for client %s", clientAddress));
 			}
 			if(observer!=null)
 				observer.onTermination(this);

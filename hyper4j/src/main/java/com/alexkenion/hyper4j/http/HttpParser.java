@@ -63,13 +63,10 @@ public class HttpParser {
 	}
 	
 	private boolean checkBufferLimit() throws HttpException {
-		System.out.println("Remaining in buffer: "+buffer.remaining()+", "+buffer.limit()+", "+buffer.capacity());
 		if(!isBufferFull()) {
-			System.out.println("Buffer not full");
 			needsInput=true;
 			return false;
 		}
-		System.out.println("Buffer full");
 		return true;
 	}
 	
@@ -133,13 +130,11 @@ public class HttpParser {
 				body=new RawMessageBody(request.getContentLength());
 			body.append(buffer);
 			if(body.isFull()) {
-				System.out.println("Read "+request.getContentLength()+" bytes of body data");
 				try {
 					ByteBuffer bodyData=body.getData();
 					bodyData.flip();
 					String bodyString=asciiDecoder.decode(bodyData).toString();
 					request.setBody(bodyString);
-					System.out.println("Read body: "+bodyString);
 				} catch (CharacterCodingException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
