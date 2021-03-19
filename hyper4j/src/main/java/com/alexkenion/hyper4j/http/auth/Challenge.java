@@ -10,6 +10,7 @@ import java.util.Set;
 import com.alexkenion.hyper4j.http.Http;
 import com.alexkenion.hyper4j.http.HttpResponse;
 import com.alexkenion.hyper4j.http.HttpUtil;
+import com.alexkenion.hyper4j.util.StringUtil;
 
 public class Challenge {
 	
@@ -63,7 +64,7 @@ public class Challenge {
 		List<String> challengeStrings=new ArrayList<String>();
 		for(Challenge challenge:challenges)
 			challengeStrings.add(challenge.toString());
-		String challengeString=String.join(", ", challengeStrings);
+		String challengeString=StringUtil.join(", ", challengeStrings);
 		response.setHeader(Http.HEADER_WWW_AUTHENTICATE, challengeString);
 		response.setBody("");
 		return response;
