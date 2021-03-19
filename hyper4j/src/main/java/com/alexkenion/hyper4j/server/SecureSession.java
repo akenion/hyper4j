@@ -13,9 +13,9 @@ import com.alexkenion.hyper4j.logging.Logger;
 import com.alexkenion.hyper4j.tls.SecureContext;
 import com.alexkenion.hyper4j.tls.TlsException;
 import com.alexkenion.hyper4j.tls.TlsSettings;
-import com.alexkenion.hyper4j.tls.TransportLayer;
+import com.alexkenion.hyper4j.tls.Transport;
 
-public class SecureSession extends Session implements TransportLayer {
+public class SecureSession extends Session implements Transport {
 	
 	private SecureContext secureContext;
 
@@ -49,8 +49,15 @@ public class SecureSession extends Session implements TransportLayer {
 	@Override
 	public void send(ByteBuffer data) {
 		try {
-			getChannel().write(data);
+			int dataSize=data.remaining();
+			System.out.println("Writing "+dataSize+" bytes");
+			int written=getChannel().write(data);
+			System.out.println("Wrote: "+written+" of "+dataSize+" bytes");
+			if(written!=dataSize) {
+				logger.log(LogLevel.WARNING, "Failed to write "+(dataSize-written)+" bytes");
+			}
 		} catch (IOException e) {
+			e.printStackTrace();
 			logger.log(LogLevel.ERROR, String.format("Failed to send TLS encrypted data to client: %s", getClientAddress()));
 		}
 	}

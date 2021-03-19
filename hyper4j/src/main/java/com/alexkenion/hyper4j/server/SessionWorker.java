@@ -69,6 +69,7 @@ public class SessionWorker implements Runnable{
 			server.getLogger().log(LogLevel.ERROR, String.format("Unable to acquire session lock for %s", session.getClientAddress()));
 		} catch (SessionException e) {
 			server.getLogger().log(LogLevel.ERROR, String.format("An unexpected session error occurred for %s", session.getClientAddress()));
+			e.printStackTrace();
 			terminateSession();
 		}
 		session.unlock();

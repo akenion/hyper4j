@@ -23,6 +23,7 @@ public class SecureSessionManager implements SessionManager{
 		try {
 			return new SecureSession(serverSettings, client, tlsSettings, logger);
 		} catch (TlsException e) {
+			e.printStackTrace();
 			return null;
 		}
 	}

@@ -129,12 +129,12 @@ public class Session {
 	}
 	
 	private void setClientAddress() {		
-		try {
+		/*try {
 			clientAddress=channel.getRemoteAddress();
 		}
 		catch(IOException e) {
 			clientAddress=null;
-		}
+		}*/
 	}
 	
 	public SocketAddress getClientAddress() {

@@ -28,14 +28,14 @@ import com.alexkenion.hyper4j.server.ServerSettings;
 public class SecureContext implements OutputBufferConsumer {
 	
 	private final TlsSettings settings;
-	private final TransportLayer transport;
+	private final Transport transport;
 	private final Logger logger;
 	private KeyStore keyStore;
 	private SSLEngine engine;
 	private SSLSession session;
 	private ByteBuffer inputApp, inputNet, outputApp, outputNet;
 	
-	public SecureContext(TlsSettings settings, TransportLayer transport, Logger logger) throws TlsException {
+	public SecureContext(TlsSettings settings, Transport transport, Logger logger) throws TlsException {
 		this.settings=settings;
 		this.transport=transport;
 		this.logger=logger;
@@ -52,7 +52,7 @@ public class SecureContext implements OutputBufferConsumer {
 			throw new TlsException("Failed to get SSL context", e);
 		}
 		try {
-			context.init(getKeyManagers(), getTrustManagers(), null);
+			context.init(getKeyManagers(), null,/*getTrustManagers(),*/ null);
 		} catch (KeyManagementException e) {
 			throw new TlsException("Failed to initialize SSL context", e);
 		}
@@ -63,8 +63,9 @@ public class SecureContext implements OutputBufferConsumer {
 	private void initializeSession() {
 		session=engine.getSession();
 		inputApp=ByteBuffer.allocate(session.getApplicationBufferSize());
-		inputNet=ByteBuffer.allocate(Math.max(session.getPacketBufferSize(), ServerSettings.DEFAULT_BUFFER_SIZE));
-		outputApp=ByteBuffer.allocate(session.getApplicationBufferSize());
+		inputNet=ByteBuffer.allocate(Math.max(session.getPacketBufferSize(), transport.getBufferSize()));
+		outputApp=ByteBuffer.allocate(Math.max(session.getApplicationBufferSize(), transport.getBufferSize()));
+		System.out.println(String.format("Initialized outputApp. %d, %d, %d", outputApp.position(), outputApp.limit(), outputApp.capacity()));
 		outputNet=ByteBuffer.allocate(session.getPacketBufferSize());
 	}
 
@@ -78,21 +79,12 @@ public class SecureContext implements OutputBufferConsumer {
 		}
 	}
 	
-	private TrustManager[] getTrustManagers() throws TlsException {
-		try {
-			TrustManagerFactory trustManagerFactory=TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
-			trustManagerFactory.init(keyStore);
-			return trustManagerFactory.getTrustManagers();
-		}
-		catch(Exception e) {
-			throw new TlsException("Unable to retrieve trust manager factory", e);
-		}
-	}
-	
 	private void wrap() throws SSLException, TlsException {
 		outputNet.clear();
+		outputApp.flip();
 		SSLEngineResult result=engine.wrap(outputApp, outputNet);
 		if(result.getStatus()==Status.OK) {
+			outputApp.clear();
 			outputNet.flip();
 			transport.send(outputNet);
 		}
@@ -101,25 +93,39 @@ public class SecureContext implements OutputBufferConsumer {
 		}
 	}
 	
-	private boolean unwrap() throws SSLException {
+	private boolean unwrap() throws SSLException{
+		return unwrap(true);
+	}
+	
+	private boolean unwrap(boolean all) throws SSLException {
 		inputNet.flip();
-		SSLEngineResult result=engine.unwrap(inputNet, inputApp);
+		boolean underflow=false, closed=false;
+		do {
+			System.out.println("Unwrapping...");
+			SSLEngineResult result=engine.unwrap(inputNet, inputApp);
+			System.out.println("SSLEngineResult: "+result.getStatus()+", "+result.bytesConsumed()+" | "+result.bytesProduced());
+			Status status=result.getStatus();
+			switch(status) {
+			case OK:
+				logger.log(LogLevel.DEBUG, "TLS unwrap succeeded, buffered data: "+result.bytesProduced());
+				break;
+			case CLOSED:
+				logger.log(LogLevel.DEBUG, "TLS connection closed");
+				closed=true;
+				break;
+			case BUFFER_UNDERFLOW:			
+				logger.log(LogLevel.DEBUG, "TLS unwrap buffer underflow, awaiting more data");
+				underflow=true;
+				break;
+			default:
+				logger.log(LogLevel.WARNING, "TLS unwrap failed: "+status);
+				break;
+			}
+			if(!all)
+				break;
+		} while(inputNet.hasRemaining()&&!underflow&&!closed&&all);
 		inputNet.compact();
-		Status status=result.getStatus();
-		switch(status) {
-		case OK:
-			logger.log(LogLevel.DEBUG, "TLS unwrap succeeded");
-			break;
-		case CLOSED:
-			break;
-		case BUFFER_UNDERFLOW:			
-			logger.log(LogLevel.DEBUG, "TLS unwrap buffer underflow, awaiting more data");
-			return false;
-		default:
-			logger.log(LogLevel.WARNING, "TLS unwrap failed: "+status);
-			break;
-		}
-		return true;
+		return !underflow;
 	}
 	
 	public void performHandshake() throws SSLException, TlsException {
@@ -128,7 +134,7 @@ public class SecureContext implements OutputBufferConsumer {
 			handshakeStatus=engine.getHandshakeStatus();
 			switch(handshakeStatus) {
 			case NEED_UNWRAP:
-				if(!unwrap())
+				if(!unwrap(false))
 					return;
 				break;
 			case NEED_WRAP:
@@ -183,9 +189,25 @@ public class SecureContext implements OutputBufferConsumer {
 	@Override
 	public void consume(ByteBuffer buffer) throws IOException {
 		buffer.flip();
+		System.out.println(String.format(
+				"Consuming buffer with %d bytes remaining. Overall length: %d, limit: %d. Destination: %d, %d, %d",
+				buffer.remaining(), buffer.capacity(), buffer.limit(),
+				outputApp.remaining(), outputApp.capacity(), outputApp.limit()
+			)
+		);
+		if(buffer.remaining()>outputApp.remaining()) {
+			System.err.println("Buffer overflow");
+			buffer=buffer.slice();
+			int offset=buffer.position()-(buffer.remaining()-outputApp.remaining());
+			if(offset<=0) {
+				System.err.println("Negative offset: "+offset);
+				buffer.compact();
+				return;
+			}
+			buffer.limit(offset);
+		}
 		outputApp.put(buffer);
-		outputApp.flip();
-		buffer.clear();
+		buffer.compact();
 		try {
 			wrap();
 		}
