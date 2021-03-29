@@ -1,14 +1,14 @@
 package com.alexkenion.hyper4j.http;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
 
 public class RawMessageBody implements MessageBody {
 	
+	private int size;
 	private ByteBuffer data;
 	
 	public RawMessageBody(int size) {
+		this.size=size;
 		data=ByteBuffer.allocate(size);
 	}
 	
@@ -24,13 +24,19 @@ public class RawMessageBody implements MessageBody {
 			}
 		}
 	}
-	
+
+	@Override
 	public ByteBuffer getData() {
 		return data;
 	}
 	
 	public boolean isFull() {
 		return !data.hasRemaining();
+	}
+	
+	@Override
+	public int getLength() {
+		return size;
 	}
 
 }

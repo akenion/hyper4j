@@ -7,7 +7,7 @@ public class HttpResponse extends HttpMessage {
 	public HttpResponse(short status, HttpHeaders headers) {
 		super(headers);
 		this.status=status;
-		setBody("");
+		setBody(new EmptyMessageBody());
 	}
 
 	public HttpResponse(short status) {
@@ -37,8 +37,8 @@ public class HttpResponse extends HttpMessage {
 	}
 	
 	@Override
-	public void setBody(String body) {
-		this.setHeader(Http.HEADER_CONTENT_LENGTH, body.length());
+	public void setBody(MessageBody body) {
+		this.setHeader(Http.HEADER_CONTENT_LENGTH, body.getLength());
 		super.setBody(body);
 	}
 

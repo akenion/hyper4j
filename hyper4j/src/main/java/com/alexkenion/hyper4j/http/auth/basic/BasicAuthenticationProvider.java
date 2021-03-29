@@ -1,7 +1,6 @@
 package com.alexkenion.hyper4j.http.auth.basic;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 
 import com.alexkenion.hyper4j.http.auth.Provider;
 import com.alexkenion.hyper4j.util.Base64Util;

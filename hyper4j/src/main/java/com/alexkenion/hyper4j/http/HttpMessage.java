@@ -3,7 +3,7 @@ package com.alexkenion.hyper4j.http;
 public abstract class HttpMessage {
 
 	private HttpHeaders headers;
-	private String body="";
+	private MessageBody body;
 	
 	public HttpMessage(HttpHeaders headers) {
 		this.headers=headers;
@@ -33,11 +33,11 @@ public abstract class HttpMessage {
 		return headers;
 	}
 	
-	public void setBody(String body) {
+	public void setBody(MessageBody body) {
 		this.body=body;
 	}
 	
-	public String getBody() {
+	public MessageBody getBody() {
 		return body;
 	}
 	

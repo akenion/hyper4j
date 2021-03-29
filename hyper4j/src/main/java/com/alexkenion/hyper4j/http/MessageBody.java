@@ -5,5 +5,6 @@ import java.nio.ByteBuffer;
 public interface MessageBody {
 	
 	public ByteBuffer getData();
+	public int getLength();
 
 }

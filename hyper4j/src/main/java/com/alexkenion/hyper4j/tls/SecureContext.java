@@ -17,13 +17,10 @@ import javax.net.ssl.SSLEngineResult.HandshakeStatus;
 import javax.net.ssl.SSLEngineResult.Status;
 import javax.net.ssl.SSLException;
 import javax.net.ssl.SSLSession;
-import javax.net.ssl.TrustManager;
-import javax.net.ssl.TrustManagerFactory;
 
 import com.alexkenion.hyper4j.http.OutputBufferConsumer;
 import com.alexkenion.hyper4j.logging.LogLevel;
 import com.alexkenion.hyper4j.logging.Logger;
-import com.alexkenion.hyper4j.server.ServerSettings;
 
 public class SecureContext implements OutputBufferConsumer {
 	
@@ -52,7 +49,7 @@ public class SecureContext implements OutputBufferConsumer {
 			throw new TlsException("Failed to get SSL context", e);
 		}
 		try {
-			context.init(getKeyManagers(), null,/*getTrustManagers(),*/ null);
+			context.init(getKeyManagers(), null, null);
 		} catch (KeyManagementException e) {
 			throw new TlsException("Failed to initialize SSL context", e);
 		}

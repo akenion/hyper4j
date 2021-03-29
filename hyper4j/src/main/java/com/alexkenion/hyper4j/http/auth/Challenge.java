@@ -66,7 +66,6 @@ public class Challenge {
 			challengeStrings.add(challenge.toString());
 		String challengeString=StringUtil.join(", ", challengeStrings);
 		response.setHeader(Http.HEADER_WWW_AUTHENTICATE, challengeString);
-		response.setBody("");
 		return response;
 	}
 	

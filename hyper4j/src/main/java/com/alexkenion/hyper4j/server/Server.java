@@ -115,7 +115,6 @@ public class Server implements SessionObserver {
 		//TODO: Ensure exceptions thrown in the worker threads do not go unnoticed
 		threadPool=Executors.newFixedThreadPool(settings.getWorkerCount());
 		Selector selector=Selector.open();
-		boolean legacy=false; //TODO: Handle this better
 		for(SocketAddress address:addresses.keySet()) {
 			ServerSocketChannel server=ServerSocketChannel.open();
 			try {
@@ -123,10 +122,8 @@ public class Server implements SessionObserver {
 				server.bind(address);
 			} catch (NoSuchMethodException e) {
 				server.socket().bind(address);
-				legacy=true;
 			} catch (SecurityException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				logger.log(LogLevel.ERROR, "Unable to bind to address: "+address);
 			}	
 			server.configureBlocking(false);
 			SelectionKey key=server.register(selector, SelectionKey.OP_ACCEPT);
@@ -148,7 +145,6 @@ public class Server implements SessionObserver {
 							logger.log(LogLevel.DEBUG, "Client is null");
 							continue;
 						}
-						//logger.log(LogLevel.DEBUG, String.format("Accepted connection from %s", legacy?null:client.getRemoteAddress()));
 						client.configureBlocking(false);
 						Session session=((SessionManager)key.attachment()).createSession(client);
 						sessions.add(session);

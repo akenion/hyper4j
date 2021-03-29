@@ -130,15 +130,7 @@ public class HttpParser {
 				body=new RawMessageBody(request.getContentLength());
 			body.append(buffer);
 			if(body.isFull()) {
-				try {
-					ByteBuffer bodyData=body.getData();
-					bodyData.flip();
-					String bodyString=asciiDecoder.decode(bodyData).toString();
-					request.setBody(bodyString);
-				} catch (CharacterCodingException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
+				request.setBody(body);
 				state=State.RECEIVED;
 			}
 		}

@@ -26,6 +26,10 @@ public class QueryString {
 		return parameters.get(key);
 	}
 	
+	public boolean has(String key) {
+		return parameters.containsKey(key);
+	}
+	
 	@Override
 	public String toString() {
 		StringBuilder builder=new StringBuilder();
@@ -55,7 +59,7 @@ public class QueryString {
 		try {
 			return URLDecoder.decode(encoded, ENCODING);
 		} catch (UnsupportedEncodingException e) {
-			// TODO Auto-generated catch block
+			//TODO: This should not be reachable
 			e.printStackTrace();
 			return null;
 		}

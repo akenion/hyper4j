@@ -2,7 +2,6 @@ package com.alexkenion.hyper4j.http;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.WritableByteChannel;
 import java.util.Iterator;
 
 public class BufferHttpResponseWriter implements HttpResponseWriter {
@@ -90,8 +89,7 @@ public class BufferHttpResponseWriter implements HttpResponseWriter {
 						}
 						break;
 					case WRITING_BODY:
-						//TODO: Properly handle response body
-						buffer.put(Http.ASCII.encode(response.getBody()));
+						buffer.put(response.getBody().getData());
 						state=State.BUFFERED;
 						break;
 					default:
