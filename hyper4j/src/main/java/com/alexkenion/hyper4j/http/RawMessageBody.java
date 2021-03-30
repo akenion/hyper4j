@@ -4,11 +4,9 @@ import java.nio.ByteBuffer;
 
 public class RawMessageBody implements MessageBody {
 	
-	private int size;
 	private ByteBuffer data;
 	
 	public RawMessageBody(int size) {
-		this.size=size;
 		data=ByteBuffer.allocate(size);
 	}
 	
@@ -27,7 +25,9 @@ public class RawMessageBody implements MessageBody {
 
 	@Override
 	public ByteBuffer getData() {
-		return data;
+		ByteBuffer buffer=data.duplicate();
+		buffer.flip();
+		return buffer;
 	}
 	
 	public boolean isFull() {
@@ -36,7 +36,7 @@ public class RawMessageBody implements MessageBody {
 	
 	@Override
 	public int getLength() {
-		return size;
+		return data.capacity();
 	}
 
 }
