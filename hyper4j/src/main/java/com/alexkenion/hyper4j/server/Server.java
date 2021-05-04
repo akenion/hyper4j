@@ -34,7 +34,7 @@ public class Server implements SessionObserver {
 	private Map<SocketAddress, SessionManager> addresses;
 	private ServerSettings settings;
 	private Logger logger;
-	private boolean running=false;
+	private boolean running=false, stopped=false;
 	private RequestHandler handler;
 	private ExecutorService threadPool;
 	private Set<Session> sessions;
@@ -111,6 +111,7 @@ public class Server implements SessionObserver {
 	
 	public void start() throws IOException {
 		running=true;
+		stopped=false;
 		sessions=new HashSet<Session>();
 		//TODO: Ensure exceptions thrown in the worker threads do not go unnoticed
 		threadPool=Executors.newFixedThreadPool(settings.getWorkerCount());
@@ -193,12 +194,16 @@ public class Server implements SessionObserver {
 			}
 			sessionsLock.unlock();
 		}
+		for(SelectionKey key : selector.keys()) {
+			key.channel().close();
+		}
 		selector.close();
 		try {
 			threadPool.awaitTermination(1000, TimeUnit.MILLISECONDS);
 		} catch (InterruptedException e) {
 			logger.log(LogLevel.ERROR, "Thread interrupted");
 		}
+		stopped=true;
 		observer.onStop();
 	}
 	
@@ -219,8 +224,32 @@ public class Server implements SessionObserver {
 		thread.start();
 	}
 	
+	public boolean isRunning() {
+		return running;
+	}
+	
+	public boolean isStopped() {
+		return stopped;
+	}
+	
 	public void stop() {
 		running=false;
+	}
+	
+	public void awaitStop(long sleep) {
+		stop();
+		while(!stopped) {
+			try {
+				Thread.sleep(sleep);
+			}
+			catch (InterruptedException e) {
+				break;
+			}
+		}
+	}
+	
+	public void awaitStop() {
+		awaitStop(10);
 	}
 
 	@Override
