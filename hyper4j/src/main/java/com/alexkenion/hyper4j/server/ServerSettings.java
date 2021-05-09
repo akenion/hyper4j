@@ -1,6 +1,7 @@
 package com.alexkenion.hyper4j.server;
 
 import com.alexkenion.hyper4j.Hyper4J;
+import com.alexkenion.hyper4j.util.NumberUtil;
 
 /**
  * Settings for receiving HTTP requests
@@ -18,8 +19,9 @@ public class ServerSettings {
 	
 	private int bufferSize;
 	private String serverIdentifier;
-	private int idleTimeout;
+	private long idleTimeoutMilliseconds;
 	private int workerCount;
+	private Long readTimeout;
 	
 	/**
 	 * Create a new settings instance using the default values
@@ -27,8 +29,9 @@ public class ServerSettings {
 	public ServerSettings() {
 		this.bufferSize=DEFAULT_BUFFER_SIZE;
 		this.serverIdentifier=Hyper4J.SERVER_IDENTIFIER;
-		this.idleTimeout=DEFAULT_IDLE_TIMEOUT;
+		this.idleTimeoutMilliseconds=NumberUtil.secondsToMilliseconds(DEFAULT_IDLE_TIMEOUT);
 		this.workerCount=Runtime.getRuntime().availableProcessors();
+		this.readTimeout=this.idleTimeoutMilliseconds;
 	}
 	
 	public ServerSettings setBufferSize(int bufferSize) {
@@ -65,12 +68,21 @@ public class ServerSettings {
 	 * @param idleTimeout the max connection duration without transfer (in seconds) or 0 for unlimited
 	 */
 	public ServerSettings setIdleTimeout(int idleTimeout) {
-		this.idleTimeout=idleTimeout;
+		this.idleTimeoutMilliseconds = NumberUtil.secondsToMilliseconds(idleTimeout);
 		return this;
 	}
 
 	public int getIdleTimeout() {
-		return idleTimeout;
+		return (int) NumberUtil.millisecondsToSeconds(idleTimeoutMilliseconds);
+	}
+	
+	public ServerSettings setIdleTimeoutMilliseconds(long idleTimeoutMilliseconds) {
+		this.idleTimeoutMilliseconds = idleTimeoutMilliseconds;
+		return this;
+	}
+	
+	public long getIdleTimeoutMilliseconds() {
+		return this.idleTimeoutMilliseconds;
 	}
 	
 	public ServerSettings setWorkerCount(int workerCount) {
@@ -80,6 +92,27 @@ public class ServerSettings {
 	
 	public int getWorkerCount() {
 		return workerCount;
+	}
+	
+	/**
+	 * @param readTimeout the read timeout (in milliseconds)
+	 */
+	public ServerSettings setReadTimeout(Long readTimeout) {
+		this.readTimeout = readTimeout;
+		return this;
+	}
+	
+	public ServerSettings disableReadTimeout() {
+		this.readTimeout = null;
+		return this;
+	}
+	
+	public boolean hasReadTimeout() {
+		return readTimeout != null;
+	}
+	
+	public Long getReadTimeout() {
+		return readTimeout;
 	}
 	
 }
