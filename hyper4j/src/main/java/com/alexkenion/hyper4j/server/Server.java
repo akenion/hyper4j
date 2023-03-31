@@ -183,6 +183,10 @@ public class Server implements SessionObserver {
 						logger.log(LogLevel.ERROR, "Failed to acquire session lock");
 						key.channel().close();
 					}
+					catch(IOException e) {
+						logger.log(LogLevel.ERROR, "IOException: " + e.getMessage());
+						key.channel().close();
+					}
 				}
 				long currentTime=System.currentTimeMillis();
 				sessionsLock.lock();
